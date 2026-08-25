@@ -12,15 +12,12 @@
 #include "Overlay/Window/PlaybackEditorWindow.h"
 #include "Overlay/Window/ComboDataWindow.h"
 #include "Overlay/Window/ReplayDBPopupWindow.h" 
-#include "Overlay/Window/PaletteSharePopupWindow.h"
 #include "Overlay/Window/FrameHistory/FrameHistoryWindow.h"
 #include "Overlay/Window/FrameAdvantage/FrameAdvantageWindow.h"
 #include "Overlay/Window/ReplayRewindWindow.h"
 #include "Overlay/Window/WinePopupWindow.h"
 #include "Overlay/Window/UnlimitedPlaybackWindow.h"
 #include "Overlay/Window/NetworkSquareColorWindow.h"
-#include "Overlay/Window/Ranked/RankedListFilterWindow.h"
-#include "Overlay/Window/Ranked/RankedLeaderboardWindow.h"
 #include "Overlay/Window/ReleaseCheckerWindow.h"
 #include "Game/ReplayTakeover/ReplayTakeoverFeatureFlags.h"
 #if BBCF_ENABLE_UNLIMITED_REPLAY_TAKEOVER
@@ -87,9 +84,6 @@ WindowContainer::WindowContainer()
         AddWindow(WindowType_WinePopup,
                 new WinePopupWindow("Wine Popup", true, *this, ImGuiWindowFlags_NoTitleBar));
 
-        AddWindow(WindowType_PaletteSharePopup,
-                new PaletteSharePopupWindow("Palette Share Popup", true, *this, ImGuiWindowFlags_NoTitleBar));
-
         AddWindow(WindowType_UnlimitedPlayback,
                 new UnlimitedPlaybackWindow(L("Unlimited Playback (BETA)").c_str(), true, *this));
 
@@ -106,13 +100,5 @@ WindowContainer::WindowContainer()
 
         AddWindow(WindowType_ReleaseChecker,
                 new ReleaseCheckerWindow("Releases##checker", true, ImGuiWindowFlags_NoCollapse));
-
-        AddWindow(WindowType_RankedListFilter,
-                new RankedListFilterWindow((L("Ranked List Config") + "###RankedListFilter").c_str(), true,
-                        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse));
-
-        AddWindow(WindowType_RankedLeaderboard,
-                new RankedLeaderboardWindow((L("Ranked Leaderboard") + "###RankedLeaderboard").c_str(), true,
-                        ImGuiWindowFlags_NoCollapse));
 }
 

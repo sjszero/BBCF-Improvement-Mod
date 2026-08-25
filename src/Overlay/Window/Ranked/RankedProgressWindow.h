@@ -2,10 +2,7 @@
 
 #include "Overlay/Window/RankedProgressOverlayState.h"
 
-#include <imgui.h>
-
 #include <cstdint>
-#include <string>
 
 struct RankedProgressOverlaySnapshot
 {
@@ -55,19 +52,3 @@ void DrawRankedMatchesMainMenuSection();
 bool CaptureRankedProgressOverlaySnapshot(RankedProgressOverlaySnapshot* outSnapshot);
 void DrawRankedProgressOverlayStandalone();
 bool TriggerRankedProgressAutomationAnimation(uint32_t characterId, int32_t lpDelta);
-
-// Shared rank display helpers (internal rank -> visible rank -> label/color),
-// reused by other windows that need to show a player's rank consistently
-// with the ranked progress overlay.
-uint32_t InternalRankToVisibleRank(uint32_t internalRank, bool isUnranked);
-std::string FormatVisibleRankLabel(uint32_t visibleRank, bool isUnranked);
-ImVec4 GetVisibleRankColor(uint32_t visibleRank, bool isUnranked);
-
-// Converts a leaderboard entry's packed score into the same "total LP" number
-// shown in the bottom-left ranked progress overlay for the local player:
-// cumulative LP of all ranks below internalRank, plus this rank's progress
-// (packedSubscore clamped to this rank's [lowerBound, upperBound) span).
-// packedSubscore is the low 16 bits of LeaderboardEntry_t::m_nScore.
-// Returns false (and leaves *outTotalLp untouched) if internalRank has no
-// known LP bounds (e.g. out of table range).
-bool ComputeTotalLpFromPackedScore(uint32_t internalRank, uint32_t packedSubscore, uint32_t* outTotalLp);

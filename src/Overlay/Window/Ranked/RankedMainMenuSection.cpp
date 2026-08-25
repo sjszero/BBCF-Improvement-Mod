@@ -47,16 +47,6 @@ namespace RankedUi
 		ImGui::SameLine();
 		ImGui::ShowHelpMarker(L("Shows win/loss ranked outcome predictions during ranked match confirmation and ranked rematch screens when opponent rank data is available.").c_str());
 
-		ImGui::HorizontalSpacing();
-		bool showRankedListFilterWindow = Settings::settingsIni.showRankedListFilterWindow;
-		if (ImGui::Checkbox(L("Show ranked list config window").c_str(), &showRankedListFilterWindow))
-		{
-			Settings::settingsIni.showRankedListFilterWindow = showRankedListFilterWindow;
-			Settings::changeSetting("ShowRankedListFilterWindow", showRankedListFilterWindow ? "1" : "0");
-		}
-		ImGui::SameLine();
-		ImGui::ShowHelpMarker(L("Automatically opens a window while the ranked search list is on screen, holding the connection filter toggle, list sorting, and the list of hidden players. Closing that window is the same as unchecking this.").c_str());
-
 		ImGui::VerticalSpacing(8);
 		ImGui::HorizontalSpacing();
 		if (ImGui::Button(L("Ranked ladder").c_str()))
@@ -65,14 +55,6 @@ namespace RankedUi
 		}
 		ImGui::SameLine();
 		ImGui::ShowHelpMarker(L("Opens the ranked ladder window, including known LP thresholds and population estimates.").c_str());
-
-		ImGui::HorizontalSpacing();
-		if (ImGui::Button(L("Ranked leaderboard").c_str()))
-		{
-			actions |= RankedMainMenuAction_OpenLeaderboard;
-		}
-		ImGui::SameLine();
-		ImGui::ShowHelpMarker(L("Opens a detailed, paged leaderboard browser (all players or per character) with exact scores, rank + LP, last-used character, Steam level, online status, and a profile shortcut.").c_str());
 
 		ImGui::HorizontalSpacing();
 		if (ImGui::Button(L("How does ranked work?").c_str()))

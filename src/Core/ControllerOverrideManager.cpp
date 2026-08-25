@@ -8,7 +8,6 @@
 #include "Core/RuntimePlatform.h"
 #include "Hooks/hooks_battle_input.h"
 #include "Game/gamestates.h"
-#include "Game/GhidraDefs.h"
 
 #include <Shellapi.h>
 #include <dinput.h>
@@ -1473,59 +1472,6 @@ namespace
     }
 
 
-    // Re-applies the player's SAVED Key Config to the freshly recreated controller
-    // objects. _create_pad_input_controllers/_create_SystemKeyControler construct the
-    // KeyControler tasks with COMPILED-IN default bindings (their init calls
-    // vtbl+0xC = SetDefaultBindings); the game normally applies the bbsave.dat-backed
-    // config in a separate step that a mid-session redetect skips - which is why
-    // hotplugging a pad reset players' binds to default. This replicates the game's
-    // own menu-side apply-all sequence (FUN_00483F10 at 0x483F60..0x483FFE) using the
-    // game's own apply functions. See GhidraDefs.h "Saved keyconfig" block.
-    void ReapplySavedKeyConfig()
-    {
-        const uintptr_t base = GetBbcfBase();
-        if (base == 0)
-        {
-            return;
-        }
-
-        using ApplyPadFn = void(__thiscall*)(void*, int padSlot, int profileIdx);
-        using ApplyKbdFn = void(__thiscall*)(void*, int profileIdx);
-
-        auto getOptData = reinterpret_cast<GAME_GetOptionData_t>(base + ADDR_GetOptionData);
-        auto getOptMgr = reinterpret_cast<GAME_GetOptionManager_t>(base + ADDR_GetOptionManager);
-        auto applyPadB = reinterpret_cast<ApplyPadFn>(base + ADDR_ApplyPadKeyConfig_SetB);
-        auto applyKbdB = reinterpret_cast<ApplyKbdFn>(base + ADDR_ApplyKeyboardKeyConfig_SetB);
-        auto applyPadA = reinterpret_cast<ApplyPadFn>(base + ADDR_ApplyPadKeyConfig_SetA);
-        auto applyKbdA = reinterpret_cast<ApplyKbdFn>(base + ADDR_ApplyKeyboardKeyConfig_SetA);
-
-        unsigned char* optData = getOptData(); // lazy-inits the option blob if needed
-        void* optMgr = getOptMgr();
-        if (optData == nullptr || optMgr == nullptr)
-        {
-            LOG(1, "[BBCF] ReapplySavedKeyConfig: option blob unavailable (optData=%p mgr=%p), skipping\n",
-                optData, optMgr);
-            return;
-        }
-
-        const int padProfileP1 = optData[0x4254];
-        const int padProfileP2 = optData[0x4255];
-        const int setAProfileP1 = optData[0x54AA5];
-        const int setAProfileP2 = optData[0x54AA6];
-
-        LOG(1, "[BBCF] ReapplySavedKeyConfig: profiles setB=(%d,%d) setA=(%d,%d)\n",
-            padProfileP1, padProfileP2, setAProfileP1, setAProfileP2);
-
-        applyPadB(optMgr, 0, padProfileP1);
-        applyPadB(optMgr, 1, padProfileP2);
-        applyKbdB(optMgr, padProfileP1);
-        applyPadA(optMgr, 0, setAProfileP1);
-        applyPadA(optMgr, 1, setAProfileP2);
-        applyKbdA(optMgr, setAProfileP1);
-
-        LOG(1, "[BBCF] ReapplySavedKeyConfig: saved Key Config re-applied to recreated controllers\n");
-    }
-
     // This is the actual "rebuild controller tasks" driver.
     void RedetectControllers_Internal()
     {
@@ -1556,8 +1502,6 @@ namespace
         LOG(1, "[BBCF] RedetectControllers_Internal: calling _create_SystemKeyControler\n");
         createSys(systemManager);
 
-        ReapplySavedKeyConfig();
-
         LOG(1, "[BBCF] RedetectControllers_Internal: done\n");
     }
 
@@ -1578,12 +1522,7 @@ namespace
         void DebugLogPadSlot0()
         {
                 auto ppDev = GetBbcfPadSlot0Ptr();
-                if (!ppDev || IsBadReadPtr(ppDev, sizeof(*ppDev)))
-                {
-                        LOG(1, "[BBCF] PadSlot0 - slot addr=%p not readable (game DI possibly uninitialized)\n", ppDev);
-                        return;
-                }
-                IDirectInputDevice8W* dev = *ppDev;
+                IDirectInputDevice8W* dev = ppDev ? *ppDev : nullptr;
                 LOG(1, "[BBCF] PadSlot0 ptr from game table = %p (slot addr=%p)\n", dev, ppDev);
         }
 
@@ -2686,17 +2625,12 @@ bool ControllerOverrideManager::RefreshDevices()
 
         LOG(1, "ControllerOverrideManager::RefreshDevices - begin (override=%d)\n", m_overrideEnabled ? 1 : 0);
         const size_t previousHash = m_lastDeviceHash;
-        const size_t previousRawHidCount = m_lastRawHidCount;
         CollectDevices();
         EnsureSelectionsValid();
         m_lastRefresh = GetTickCount64();
         m_lastDeviceHash = HashDevices(m_devices);
-        // Also treat a change in raw HID gamepad count as a device change. This handles
-        // Steam Input: the DualSense is hidden from our DInput enumeration (hash stays flat)
-        // but rawHidCount still ticks up, so we can still trigger reinit and let the game's
-        // own DInput calls (which Steam does hook) pick up the controller.
-        const bool devicesChanged = (m_lastDeviceHash != previousHash) || (m_lastRawHidCount != previousRawHidCount);
-        LOG(1, "ControllerOverrideManager::RefreshDevices - end (devices=%zu, hash=%zu rawHid=%zu changed=%d)\n", m_devices.size(), m_lastDeviceHash, m_lastRawHidCount, devicesChanged ? 1 : 0);
+        const bool devicesChanged = (m_lastDeviceHash != previousHash);
+        LOG(1, "ControllerOverrideManager::RefreshDevices - end (devices=%zu, hash=%zu changed=%d)\n", m_devices.size(), m_lastDeviceHash, devicesChanged ? 1 : 0);
         return devicesChanged;
 }
 
@@ -2813,24 +2747,6 @@ void ControllerOverrideManager::RefreshDevicesAndReinitializeGame()
 
 void ControllerOverrideManager::TickAutoRefresh()
 {
-        // One-shot follow-up reinit scheduled after an auto reinit. The first reinit after
-        // the game's DI subsystem is freshly created reliably creates the DInput device but
-        // the game does not bind it to its pad slot; a second reinit does (this mirrors the
-        // manual F1 > Controller Settings refresh, which works in every configuration).
-        if (m_secondReinitDueMs != 0)
-        {
-                if (!ControllerHooksEnabled())
-                {
-                        m_secondReinitDueMs = 0;
-                }
-                else if (GetTickCount64() >= m_secondReinitDueMs && IsSafeToRefreshGameInputsNow())
-                {
-                        m_secondReinitDueMs = 0;
-                        LOG(1, "ControllerOverrideManager::TickAutoRefresh - firing scheduled follow-up reinit\n");
-                        ReinitializeGameInputs();
-                }
-        }
-
         if (!m_deviceChangeQueued.load(std::memory_order_relaxed))
         {
                 return;
@@ -2840,23 +2756,12 @@ void ControllerOverrideManager::TickAutoRefresh()
         {
                 LOG(1, "ControllerOverrideManager::TickAutoRefresh - clearing queued refresh because controller hooks are disabled\n");
                 m_deviceChangeQueued.store(false, std::memory_order_relaxed);
-                m_steamPendingStartMs = 0;
                 return;
         }
 
         if (!IsSafeToRefreshGameInputsNow())
         {
                 return;
-        }
-
-        // When Steam Input is pending (virtual device not yet visible to DInput), we re-queue
-        // after each poll. Rate-limit those re-polls to once per second so we don't hammer
-        // DInput enumeration every frame.
-        if (m_steamPendingStartMs != 0 && m_lastRefresh > 0)
-        {
-                const ULONGLONG now = GetTickCount64();
-                if ((now - m_lastRefresh) < 1000)
-                        return;
         }
 
         m_deviceChangeQueued.store(false, std::memory_order_relaxed);
@@ -2977,11 +2882,8 @@ void ControllerOverrideManager::ReinitializeGameInputs()
         DebugDumpTrackedDevices();
         DebugLogPadSlot0();
         SendDeviceChangeBroadcast();
-        DebugLogPadSlot0();  // after broadcast, before redetect — shows if WM_DEVICECHANGE caused game to init the slot
         RedetectControllers_Internal();
-        DebugLogPadSlot0();
-        LOG(1, "ControllerOverrideManager::ReinitializeGameInputs - end (trackedA=%zu trackedW=%zu)\n",
-                m_trackedDevicesA.size(), m_trackedDevicesW.size());
+        LOG(1, "ControllerOverrideManager::ReinitializeGameInputs - end\n");
 }
 
 void ControllerOverrideManager::ProcessPendingDeviceChange()
@@ -3004,12 +2906,8 @@ void ControllerOverrideManager::ProcessPendingDeviceChange()
 
         m_deviceChangeQueued.store(false, std::memory_order_relaxed);
 
-        const size_t prevDinputHash = m_lastDeviceHash;
         const bool devicesChanged = RefreshDevices();
-        // Skip early only when nothing changed AND we are not already in a Steam pending poll loop.
-        // If Steam pending is active we must keep checking even on "no change" frames so we don't
-        // drop the re-queue when rawHid/DInput state is stable between polls.
-        if (!devicesChanged && m_steamPendingStartMs == 0)
+        if (!devicesChanged)
         {
                 LOG(1, "ControllerOverrideManager::ProcessPendingDeviceChange - device hash unchanged, skipping reinitialize\n");
                 return;
@@ -3017,46 +2915,8 @@ void ControllerOverrideManager::ProcessPendingDeviceChange()
 
         if (m_autoRefreshEnabled)
         {
-                const bool dinputChanged = (m_lastDeviceHash != prevDinputHash);
-                if (m_steamInputLikely && !dinputChanged)
-                {
-                        // Steam virtual device not yet visible to DInput (only rawHid changed).
-                        // Optionally give DInput a short window to catch up (AutoRefreshSteamGraceMs),
-                        // then fire reinit anyway: Steam's virtual pad may NEVER appear in our own
-                        // enumeration, yet the game's _create_pad_input_controllers can still
-                        // bind it (the manual F1 refresh works with Steam Input on).
-                        const ULONGLONG graceMs = static_cast<ULONGLONG>(
-                                (std::max)(0, Settings::settingsIni.autoRefreshSteamGraceMs));
-                        const ULONGLONG now = GetTickCount64();
-                        if (m_steamPendingStartMs == 0)
-                        {
-                                m_steamPendingStartMs = now;
-                        }
-                        const ULONGLONG elapsedMs = now - m_steamPendingStartMs;
-                        if (elapsedMs < graceMs)
-                        {
-                                LOG(1, "ControllerOverrideManager::ProcessPendingDeviceChange - Steam pending (%llums/%llums elapsed), DInput hash still unchanged, re-queuing\n", elapsedMs, graceMs);
-                                m_deviceChangeQueued.store(true, std::memory_order_relaxed);
-                                return;
-                        }
-                        LOG(1, "ControllerOverrideManager::ProcessPendingDeviceChange - Steam pad not visible to DInput after %llums (grace %llums), firing reinit anyway\n", elapsedMs, graceMs);
-                        m_steamPendingStartMs = 0;
-                }
-                else if (m_steamPendingStartMs != 0)
-                {
-                        LOG(1, "ControllerOverrideManager::ProcessPendingDeviceChange - Steam pending resolved after %llums: DInput hash changed, firing reinit\n",
-                                GetTickCount64() - m_steamPendingStartMs);
-                        m_steamPendingStartMs = 0;
-                }
-
                 LOG(1, "ControllerOverrideManager::ProcessPendingDeviceChange - auto refreshing controllers\n");
                 ReinitializeGameInputs();
-
-                // The first reinit after the game's DI subsystem is created does not bind the
-                // new device to the game's pad slot; a second one does. Schedule it.
-                const int followupMs = (std::max)(0, Settings::settingsIni.autoRefreshFollowupDelayMs);
-                m_secondReinitDueMs = GetTickCount64() + followupMs;
-                LOG(1, "ControllerOverrideManager::ProcessPendingDeviceChange - scheduled follow-up reinit in %dms\n", followupMs);
         }
         else
         {
@@ -3257,11 +3117,6 @@ bool ControllerOverrideManager::GetKeyboardStateSnapshot(HANDLE deviceHandle, st
         return true;
 }
 
-// Timer that keeps auto-refresh ticking while the game's logic loop is paused
-// (focus loss / Steam overlay freeze BBCF's frame loop, but its window message
-// pump keeps running - proven by WM_DEVICECHANGE arriving during the freeze).
-static const UINT_PTR kAutoRefreshTimerId = 0xB1CF01;
-
 void ControllerOverrideManager::HandleWindowMessage(UINT msg, WPARAM wParam, LPARAM lParam)
 {
         if (!ControllerHooksEnabled())
@@ -3270,24 +3125,6 @@ void ControllerOverrideManager::HandleWindowMessage(UINT msg, WPARAM wParam, LPA
                 {
                         m_deviceChangeQueued.store(false, std::memory_order_relaxed);
                 }
-                return;
-        }
-
-        if (msg == WM_TIMER && wParam == kAutoRefreshTimerId)
-        {
-                const bool anythingPending = m_deviceChangeQueued.load(std::memory_order_relaxed)
-                        || m_steamPendingStartMs != 0
-                        || m_secondReinitDueMs != 0;
-                if (!anythingPending)
-                {
-                        if (g_gameProc.hWndGameWindow)
-                        {
-                                KillTimer(g_gameProc.hWndGameWindow, kAutoRefreshTimerId);
-                        }
-                        LOG(1, "ControllerOverrideManager::HandleWindowMessage - auto refresh timer idle, killed\n");
-                        return;
-                }
-                TickAutoRefresh();
                 return;
         }
 
@@ -3325,14 +3162,6 @@ void ControllerOverrideManager::HandleWindowMessage(UINT msg, WPARAM wParam, LPA
         case DBT_DEVNODES_CHANGED:
                 LOG(1, "ControllerOverrideManager::HandleWindowMessage - WM_DEVICECHANGE wParam=0x%08lX lParam=0x%08lX\n", wParam, lParam);
                 m_deviceChangeQueued.store(true, std::memory_order_relaxed);
-                // Keep ticking via the message pump even if the game's frame loop is paused
-                // (focus loss / Steam overlay); the timer self-kills once nothing is pending.
-                if (g_gameProc.hWndGameWindow)
-                {
-                        const UINT timerMs = static_cast<UINT>(
-                                (std::max)(10, Settings::settingsIni.autoRefreshTimerIntervalMs));
-                        SetTimer(g_gameProc.hWndGameWindow, kAutoRefreshTimerId, timerMs, nullptr);
-                }
                 RefreshKeyboardDevices();
                 break;
         default:
@@ -3622,37 +3451,35 @@ bool ControllerOverrideManager::OpenDeviceProperties(const GUID& guid) const
 template <typename T>
 void ControllerOverrideManager::ApplyOrderingImpl(std::vector<T>& devices) const
 {
+        if (!m_overrideEnabled || devices.empty())
+        {
+                return;
+        }
+
+        auto guidForIndex = [this](int idx) {
+                if (idx < 0 || idx > 1)
+                        return GUID_NULL;
+                return m_playerSelections[idx];
+        };
+
+        std::vector<T> filtered;
+        filtered.reserve(devices.size());
+
+        for (const auto& device : devices)
+        {
+                if (IsDeviceAllowed(GetGuidFromInstance(device)))
+                {
+                        filtered.push_back(device);
+                }
+        }
+
+        devices.swap(filtered);
+
         if (devices.empty())
         {
                 return;
         }
 
-        if (m_overrideEnabled)
-        {
-                std::vector<T> filtered;
-                filtered.reserve(devices.size());
-
-                for (const auto& device : devices)
-                {
-                        if (IsDeviceAllowed(GetGuidFromInstance(device)))
-                        {
-                                filtered.push_back(device);
-                        }
-                }
-
-                devices.swap(filtered);
-
-                if (devices.empty())
-                {
-                        return;
-                }
-        }
-
-        // Stabilize enumeration order across refreshes: keep already-known devices in their
-        // previous relative order (so the game keeps treating them as the same P1/P2 slot) and
-        // append newly-appeared devices at the end. Without this, plugging in a new pad mid-session
-        // can shuffle DInput's raw enumeration order and bump an already-bound device out of its
-        // slot (or make the new pad look like "device 0" and steal P1).
         std::vector<bool> consumed(devices.size(), false);
         std::vector<T> ordered;
         ordered.reserve(devices.size());
@@ -3675,34 +3502,18 @@ void ControllerOverrideManager::ApplyOrderingImpl(std::vector<T>& devices) const
                 }
         };
 
-        if (m_overrideEnabled)
-        {
-                // Explicit user picks take priority over stable ordering.
-                appendByGuid(m_playerSelections[0]);
-                appendByGuid(m_playerSelections[1]);
-        }
-
-        for (const GUID& guid : m_lastKnownDeviceOrder)
-        {
-                appendByGuid(guid);
-        }
+        appendByGuid(guidForIndex(0));
+        appendByGuid(guidForIndex(1));
 
         for (size_t i = 0; i < devices.size(); ++i)
         {
-                if (!consumed[i])
-                {
-                        ordered.push_back(devices[i]);
-                }
+                        if (!consumed[i])
+                        {
+                                ordered.push_back(devices[i]);
+                        }
         }
 
         devices.swap(ordered);
-
-        m_lastKnownDeviceOrder.clear();
-        m_lastKnownDeviceOrder.reserve(devices.size());
-        for (const auto& device : devices)
-        {
-                m_lastKnownDeviceOrder.push_back(GetGuidFromInstance(device));
-        }
 }
 
 void ControllerOverrideManager::EnsureSelectionsValid()
@@ -3868,11 +3679,10 @@ bool ControllerOverrideManager::CollectDevices()
         bool rawSuggestsFiltering = (!rawInputDevices.empty() && rawInputDevices.size() > diGamepadCount) || rawDeviceMissingInDirectInput;
         bool winmmSuggestsFiltering = !winmmDevices.empty() && winmmDevices.size() > diGamepadCount;
 
-        // Consider Steam Input active when the SDL ignore list looks like Steam Input (envLikely) AND either
-        // (a) at least one gamepad is still visible to DInput (Steam virtual device already present), or
-        // (b) a raw HID gamepad is missing from DInput (rawSuggestsFiltering) — this is the case when
-        // Steam has hidden the physical device but its virtual DInput device isn't ready yet.
-        m_steamInputLikely = envLikely && (anyListedGamepad || rawSuggestsFiltering);
+        // Consider Steam Input active only when (a) the SDL ignore list length matches the large Steam Input profile and
+        // (b) at least one gamepad remains visible to DirectInput. Module presence and filtering hints are logged for
+        // diagnostics but no longer drive the decision to avoid false positives when SteamInput DLLs are loaded for other reasons.
+        m_steamInputLikely = envLikely && anyListedGamepad;
 
         LOG(1, "[SteamInputDetect] final steamInputLikely=%d (envLikely=%d moduleLoaded=%d rawSuggestsFiltering=%d winmmSuggestsFiltering=%d rawMissing=%d rawCount=%zu envIgnoreEntries=%zu envLen=%lu)\n",
                 m_steamInputLikely ? 1 : 0,
@@ -3884,8 +3694,6 @@ bool ControllerOverrideManager::CollectDevices()
                 rawInputDevices.size(),
                 envInfo.ignoreDeviceEntryCount,
                 envInfo.ignoreDevicesLength);
-
-        m_lastRawHidCount = rawInputDevices.size();
 
         return diSuccess || !winmmDevices.empty();
 }

@@ -12,7 +12,6 @@
 #include "Web/url_downloader.h"
 //#include "Game/GhidraDefs.h"
 #include "Game/SnapshotApparatus/SnapshotApparatus.h"
-#include "Game/SpectatorSyncDiagnostics.h"
 #include "Game/ReplayFiles/ReplayFileManager.h"
 #define STB_IMAGE_IMPLEMENTATION
 //#include "stb_image.h"
@@ -88,8 +87,6 @@ void DebugWindow::Draw()
 	DrawGameValuesSection();
 
 	DrawRoomSection();
-
-	DrawSpectatorSyncSection();
 
 	DrawSettingsSection();
 
@@ -623,57 +620,6 @@ void DebugWindow::DrawGameValuesSection()
 
 		ImGui::TreePop();
 	}
-}
-
-// Fault-injection panel for the spectator desync theory. Only meaningful
-// while spectating a network match. See docs/Research/SpectatorDesyncInvestigation.md.
-void DebugWindow::DrawSpectatorSyncSection()
-{
-	if (!ImGui::CollapsingHeader("Spectator sync"))
-		return;
-
-	const SpectatorSyncDiagnostics::Status status = SpectatorSyncDiagnostics::GetStatus();
-
-	ImGui::Text("Spectator backend: 0x%08lX %s", status.backendPtr,
-		status.backendPtr ? "" : "(not spectating yet this session)");
-	ImGui::Text("Input cursor: %d / newest received: %d (lag %d)",
-		status.nextInputToSend, status.maxReceivedFrame,
-		(status.nextInputToSend >= 0 && status.maxReceivedFrame >= 0)
-			? status.maxReceivedFrame - status.nextInputToSend : -1);
-	ImGui::Text("Starvations: %d | absorbed/frozen (desync prevented): %d | leaked: %d | stalls: %d",
-		status.starvationCount, status.framesAbsorbed, status.zeroInputAdvancesLeaked, status.stalls);
-	ImGui::Text("Last gate scene-state: (%d, %d, %d) | freeze streak: %d | peak backlog: %d / 256",
-		status.sceneA, status.sceneB, status.sceneC, status.currentFreezeStreak, status.maxLagSeen);
-	ImGui::TextUnformatted("Fix active: freezes only in transition states to absorb network");
-	ImGui::TextUnformatted("stalls (no phantom frames); match-end preserved via short cap.");
-
-	// A/B test harness. Injection forces the desync-prone situation on demand (any scene
-	// state), so both sides can be observed without waiting for a real transition stall.
-	static int injectFrames = 30;
-	static bool bypassFix = false;
-	ImGui::PushItemWidth(120.0f);
-	ImGui::InputInt("frames", &injectFrames);
-	ImGui::PopItemWidth();
-	if (injectFrames < 1) injectFrames = 1;
-	if (injectFrames > 600) injectFrames = 600;
-
-	ImGui::Checkbox("Bypass fix (reproduce raw desync)", &bypassFix);
-	g_spectatorInjectBypassFix = bypassFix ? 1 : 0;
-
-	if (ImGui::Button(bypassFix ? "Inject: REPRODUCE desync" : "Inject: test fix (absorb)"))
-	{
-		SpectatorSyncDiagnostics::InjectDesync(injectFrames);
-	}
-	if (status.injectRemaining > 0)
-	{
-		ImGui::SameLine();
-		ImGui::Text("injecting... %d left", status.injectRemaining);
-	}
-	ImGui::TextUnformatted("Bypass OFF (fix): injecting should FREEZE the match briefly then");
-	ImGui::TextUnformatted("resume with NO desync (verify match keeps working, no crash).");
-	ImGui::TextUnformatted("Bypass ON: injecting forces phantom frames -> should visibly desync");
-	ImGui::TextUnformatted("(confirms the repro; use short bursts). Match-end: play to the end");
-	ImGui::TextUnformatted("with fix on and confirm the victory screen / rematch still works.");
 }
 
 void DebugWindow::DrawRoomSection()

@@ -22,7 +22,6 @@
 #include <string>
 #include <thread>
 #include <algorithm>
-#include <set>
 #include <vector>
 
 namespace {
@@ -469,9 +468,9 @@ void CenterNextButtonsRow(float totalWidth) {
 void DrawContextMenuHeader(const char* text) {
     ImGui::Separator();
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.58f, 0.58f, 0.58f, 1.0f));
-    ImGui::PushFont(NULL, ImGui::GetStyle().FontSizeBase * 0.86f);
+    ImGui::SetWindowFontScale(0.86f);
     ImGui::TextUnformatted(text);
-    ImGui::PopFont();
+    ImGui::SetWindowFontScale(1.0f);
     ImGui::PopStyleColor();
 }
 
@@ -489,31 +488,6 @@ int AdjustSelectedEntryAfterMove(int selectedEntry, int fromIndex, int toIndex) 
         return selectedEntry + 1;
     }
     return selectedEntry;
-}
-
-// Click-selection helper shared by the library slot list. `ctrlHeld` toggles the clicked
-// slot in/out of the selection; `shiftHeld` selects the contiguous range from `anchor` to
-// `clickedIndex` (replacing the current selection), matching common file-explorer behavior.
-void ApplySlotSelectionClick(std::set<int>& selection, int& anchor, int clickedIndex, bool ctrlHeld, bool shiftHeld) {
-    if (ctrlHeld) {
-        if (selection.count(clickedIndex)) {
-            selection.erase(clickedIndex);
-        } else {
-            selection.insert(clickedIndex);
-        }
-        anchor = clickedIndex;
-    } else if (shiftHeld && anchor >= 0) {
-        selection.clear();
-        const int lo = (std::min)(anchor, clickedIndex);
-        const int hi = (std::max)(anchor, clickedIndex);
-        for (int k = lo; k <= hi; ++k) {
-            selection.insert(k);
-        }
-    } else {
-        selection.clear();
-        selection.insert(clickedIndex);
-        anchor = clickedIndex;
-    }
 }
 
 int ComputeMoveTargetFromInsertionIndex(int fromIndex, int insertionIndex, int entryCount) {
@@ -563,9 +537,8 @@ void UnlimitedPlaybackWindow::Draw() {
         return true;
     };
 
-    static std::set<int> selectedEntries;
-    static int selectionAnchor = -1;
-    static std::vector<int> entriesPendingDelete;
+    static int selectedEntry = -1;
+    static int entryPendingDelete = -1;
     static int entryPendingEdit = -1;
     static int entryPendingSend = -1;
     static int entryPendingSetIndex = -1;
@@ -795,8 +768,8 @@ void UnlimitedPlaybackWindow::Draw() {
         ImGui::GetStyle().ItemSpacing.y;
     ImGui::BeginChild("up_library_entries", ImVec2(0, -libraryControlsHeight), true);
     const auto& entries = mgr.GetEntries();
-    std::vector<int> entryMoveFromList;
-    int entryMoveInsertion = -1;
+    int entryMoveFrom = -1;
+    int entryMoveTo = -1;
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
         const auto& e = entries[i];
         ImGui::PushID(i);
@@ -805,41 +778,18 @@ void UnlimitedPlaybackWindow::Draw() {
         const float controlsWidth = (iconButtonWidth * 3.0f) + (rowSpacing * 2.0f);
         bool enabled = e.enabled;
         if (ImGui::Checkbox("##enabled", &enabled)) {
-            if (selectedEntries.size() > 1 && selectedEntries.count(i)) {
-                std::vector<size_t> indices(selectedEntries.begin(), selectedEntries.end());
-                mgr.SetEntriesEnabled(indices, enabled);
-            } else {
-                mgr.GetEntriesMutable()[i].enabled = enabled;
-            }
+            mgr.GetEntriesMutable()[i].enabled = enabled;
         }
         ImGui::SameLine();
         const float labelWidth = (std::max)(1.0f, ImGui::GetContentRegionAvail().x - controlsWidth - 8.0f);
-        if (ImGui::Selectable(e.name.c_str(), selectedEntries.count(i) != 0, 0, ImVec2(labelWidth, 0.0f))) {
-            const bool ctrlHeld = ImGui::GetIO().KeyCtrl;
-            const bool shiftHeld = ImGui::GetIO().KeyShift;
-            ApplySlotSelectionClick(selectedEntries, selectionAnchor, i, ctrlHeld, shiftHeld);
+        if (ImGui::Selectable(e.name.c_str(), selectedEntry == i, 0, ImVec2(labelWidth, 0.0f))) {
+            selectedEntry = i;
         }
         const ImVec2 slotMin = ImGui::GetItemRectMin();
         const ImVec2 slotMax = ImGui::GetItemRectMax();
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-            std::vector<int> dragIndices;
-            if (selectedEntries.size() > 1 && selectedEntries.count(i)) {
-                dragIndices.assign(selectedEntries.begin(), selectedEntries.end());
-            } else {
-                dragIndices.assign({ i });
-                selectedEntries.clear();
-                selectedEntries.insert(i);
-                selectionAnchor = i;
-            }
-            ImGui::SetDragDropPayload(
-                kUnlimitedPlaybackDragDropPayload,
-                dragIndices.data(),
-                dragIndices.size() * sizeof(int));
-            if (dragIndices.size() > 1) {
-                ImGui::Text("%s", FormatText(L("Dragged %d slots").c_str(), static_cast<int>(dragIndices.size())).c_str());
-            } else {
-                ImGui::Text("%s", FormatText(L("Dragged slot: %s").c_str(), e.name.c_str()).c_str());
-            }
+            ImGui::SetDragDropPayload(kUnlimitedPlaybackDragDropPayload, &i, sizeof(i));
+            ImGui::Text("%s", FormatText(L("Dragged slot: %s").c_str(), e.name.c_str()).c_str());
             ImGui::EndDragDropSource();
         }
         if (ImGui::BeginDragDropTarget()) {
@@ -847,29 +797,25 @@ void UnlimitedPlaybackWindow::Draw() {
                 ImGuiDragDropFlags_AcceptBeforeDelivery |
                 ImGuiDragDropFlags_AcceptNoDrawDefaultRect;
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(kUnlimitedPlaybackDragDropPayload, flags)) {
-                if (payload->DataSize > 0 && payload->DataSize % sizeof(int) == 0) {
-                    const int* fromData = static_cast<const int*>(payload->Data);
-                    const int fromCount = payload->DataSize / static_cast<int>(sizeof(int));
+                if (payload->DataSize == sizeof(int)) {
+                    const int from = *static_cast<const int*>(payload->Data);
                     const int entryCount = static_cast<int>(entries.size());
-                    bool allValid = fromCount > 0;
-                    for (int k = 0; k < fromCount && allValid; ++k) {
-                        if (fromData[k] < 0 || fromData[k] >= entryCount) {
-                            allValid = false;
-                        }
-                    }
-                    if (allValid) {
+                    if (from >= 0 && from < entryCount) {
                         const float midpointY = (slotMin.y + slotMax.y) * 0.5f;
                         const bool insertAfterHovered = ImGui::GetIO().MousePos.y >= midpointY;
                         const int insertionIndex = i + (insertAfterHovered ? 1 : 0);
-                        const float y = insertAfterHovered ? slotMax.y : slotMin.y;
-                        ImGui::GetWindowDrawList()->AddLine(
-                            ImVec2(slotMin.x, y),
-                            ImVec2(slotMax.x, y),
-                            IM_COL32(120, 200, 255, 220),
-                            1.5f);
-                        if (payload->IsDelivery()) {
-                            entryMoveFromList.assign(fromData, fromData + fromCount);
-                            entryMoveInsertion = insertionIndex;
+                        const int to = ComputeMoveTargetFromInsertionIndex(from, insertionIndex, entryCount);
+                        if (to != from) {
+                            const float y = insertAfterHovered ? slotMax.y : slotMin.y;
+                            ImGui::GetWindowDrawList()->AddLine(
+                                ImVec2(slotMin.x, y),
+                                ImVec2(slotMax.x, y),
+                                IM_COL32(120, 200, 255, 220),
+                                1.5f);
+                            if (payload->IsDelivery()) {
+                                entryMoveFrom = from;
+                                entryMoveTo = to;
+                            }
                         }
                     }
                 }
@@ -891,24 +837,15 @@ void UnlimitedPlaybackWindow::Draw() {
                     L("Export playback entry file dialog open...").c_str(),
                     i);
             }
-            std::vector<int> moveGroup;
-            if (selectedEntries.size() > 1 && selectedEntries.count(i)) {
-                moveGroup.assign(selectedEntries.begin(), selectedEntries.end());
-            } else {
-                moveGroup.assign({ i });
-            }
-            std::sort(moveGroup.begin(), moveGroup.end());
-            const int moveGroupMin = moveGroup.front();
-            const int moveGroupMax = moveGroup.back();
-            const bool canMoveUp = entries.size() > 1 && moveGroupMin > 0;
-            const bool canMoveDown = entries.size() > 1 && moveGroupMax < static_cast<int>(entries.size()) - 1;
+            const bool canMoveUp = entries.size() > 1 && i > 0;
+            const bool canMoveDown = entries.size() > 1 && i < static_cast<int>(entries.size()) - 1;
             if (ImGui::MenuItem(L("Move up").c_str(), nullptr, false, canMoveUp)) {
-                entryMoveFromList = moveGroup;
-                entryMoveInsertion = moveGroupMin - 1;
+                entryMoveFrom = i;
+                entryMoveTo = i - 1;
             }
             if (ImGui::MenuItem(L("Move down").c_str(), nullptr, false, canMoveDown)) {
-                entryMoveFromList = moveGroup;
-                entryMoveInsertion = moveGroupMax + 2;
+                entryMoveFrom = i;
+                entryMoveTo = i + 1;
             }
             if (ImGui::MenuItem(L("Set index...").c_str(), nullptr, false, entries.size() > 1)) {
                 entryPendingSetIndex = i;
@@ -942,26 +879,18 @@ void UnlimitedPlaybackWindow::Draw() {
         DrawButtonTooltip(L("Edit").c_str());
         ImGui::SameLine();
         if (DrawMiniIconButton("X", true)) {
-            if (selectedEntries.size() > 1 && selectedEntries.count(i)) {
-                entriesPendingDelete.assign(selectedEntries.begin(), selectedEntries.end());
-            } else {
-                entriesPendingDelete.assign({ i });
-            }
+            entryPendingDelete = i;
             openDeleteEntryConfirmModal = true;
         }
         DrawButtonTooltip(L("Delete").c_str());
         ImGui::PopID();
     }
-    if (!entryMoveFromList.empty() && entryMoveInsertion >= 0) {
-        std::vector<size_t> fromIndices(entryMoveFromList.begin(), entryMoveFromList.end());
-        std::sort(fromIndices.begin(), fromIndices.end());
-        size_t insertedAt = 0;
-        if (mgr.MoveEntries(fromIndices, static_cast<size_t>(entryMoveInsertion), &insertedAt)) {
-            selectedEntries.clear();
-            for (size_t k = 0; k < fromIndices.size(); ++k) {
-                selectedEntries.insert(static_cast<int>(insertedAt + k));
-            }
-            selectionAnchor = static_cast<int>(insertedAt);
+    if (entryMoveFrom >= 0 && entryMoveTo >= 0 &&
+        entryMoveFrom < static_cast<int>(mgr.GetEntries().size()) &&
+        entryMoveTo < static_cast<int>(mgr.GetEntries().size())) {
+        const int oldSelectedEntry = selectedEntry;
+        if (mgr.MoveEntry(static_cast<size_t>(entryMoveFrom), static_cast<size_t>(entryMoveTo))) {
+            selectedEntry = AdjustSelectedEntryAfterMove(oldSelectedEntry, entryMoveFrom, entryMoveTo);
         }
     }
     ImGui::EndChild();
@@ -1190,7 +1119,7 @@ void UnlimitedPlaybackWindow::Draw() {
         ImGui::TextUnformatted(L("Setup Time (seconds)").c_str());
         DrawHelpInline(L("Seconds to show a setup countdown after optional snapshot restore before playing the next slot.").c_str());
         ImGui::PushItemWidth(-1.0f);
-        if (ImGui::InputFloat("##up_loop_setup_seconds", &setupSeconds, 0.1f, 0.5f, "%.2f")) {
+        if (ImGui::InputFloat("##up_loop_setup_seconds", &setupSeconds, 0.1f, 0.5f, 2)) {
             mgr.SetLoopSetupSeconds(setupSeconds);
             Settings::settingsIni.unlimitedPlaybackLoopSetupSeconds = mgr.GetLoopSetupSeconds();
             Settings::changeSetting("UnlimitedPlaybackLoopSetupSeconds", std::to_string(mgr.GetLoopSetupSeconds()));
@@ -1201,7 +1130,7 @@ void UnlimitedPlaybackWindow::Draw() {
         ImGui::TextUnformatted(L("Ending Time (seconds)").c_str());
         DrawHelpInline(L("Seconds to wait after both players return to idle before starting the next setup.").c_str());
         ImGui::PushItemWidth(-1.0f);
-        if (ImGui::InputFloat("##up_loop_ending_seconds", &endingSeconds, 0.1f, 0.5f, "%.2f")) {
+        if (ImGui::InputFloat("##up_loop_ending_seconds", &endingSeconds, 0.1f, 0.5f, 2)) {
             mgr.SetLoopEndingSeconds(endingSeconds);
             Settings::settingsIni.unlimitedPlaybackLoopEndingSeconds = mgr.GetLoopEndingSeconds();
             Settings::changeSetting("UnlimitedPlaybackLoopEndingSeconds", std::to_string(mgr.GetLoopEndingSeconds()));
@@ -1215,75 +1144,23 @@ void UnlimitedPlaybackWindow::Draw() {
             Settings::changeSetting("UnlimitedPlaybackLoopRestartLabState", restartLabState ? "1" : "0");
         }
         if (restartLabState) {
-            static const int kResetModeOrder[] = {
-                UnlimitedPlaybackManager::LoopReset_Left,
-                UnlimitedPlaybackManager::LoopReset_Middle,
-                UnlimitedPlaybackManager::LoopReset_Right,
-                UnlimitedPlaybackManager::LoopReset_Custom,
-            };
-            const int currentResetMode = mgr.GetLoopRestartMode();
-            ImGui::TextUnformatted(L("Reset Position").c_str());
-            DrawHelpInline(L("Lab state restored before each loop. Left/Middle/Right briefly take control the first time the loop starts to reset there and auto-save a snapshot; Custom Snapshot uses a snapshot you save manually.").c_str());
-            ImGui::PushItemWidth(-1.0f);
-            if (ImGui::BeginCombo("##up_loop_reset_mode", LoopResetModeLabel(currentResetMode))) {
-                for (int mode : kResetModeOrder) {
-                    const bool selected = (mode == currentResetMode);
-                    if (ImGui::Selectable(LoopResetModeLabel(mode), selected)) {
-                        mgr.SetLoopRestartMode(mode);
-                        Settings::settingsIni.unlimitedPlaybackLoopRestartMode = mgr.GetLoopRestartMode();
-                        Settings::changeSetting("UnlimitedPlaybackLoopRestartMode", std::to_string(mgr.GetLoopRestartMode()));
-                    }
-                    if (selected) {
-                        ImGui::SetItemDefaultFocus();
-                    }
-                }
-                ImGui::EndCombo();
+            ImGui::TextUnformatted(L("Custom Snapshot").c_str());
+            DrawHelpInline(L("Loop restart restores this session-only snapshot before each slot. It is cleared when leaving lab.").c_str());
+            if (ImGui::Button(L("Save").c_str(), ImVec2(-1.0f, 0))) {
+                mgr.CaptureLoopCustomSnapshot();
             }
-            ImGui::PopItemWidth();
-
-            if (currentResetMode == UnlimitedPlaybackManager::LoopReset_Custom) {
-                const bool customReady = mgr.IsLoopSnapshotReadyForMode(UnlimitedPlaybackManager::LoopReset_Custom);
-                ImGui::TextUnformatted(L("Custom Snapshot").c_str());
-                DrawHelpInline(L("Loop restart restores this session-only snapshot before each slot. It is cleared when leaving lab.").c_str());
-                if (ImGui::Button(L("Save").c_str(), ImVec2(-1.0f, 0))) {
-                    mgr.CaptureLoopCustomSnapshot();
+            DrawButtonTooltip(L("Save current lab state as the loop restart snapshot.").c_str());
+            if (mgr.HasLoopCustomSnapshot()) {
+                if (ImGui::Button(L("Load").c_str(), ImVec2(-1.0f, 0))) {
+                    mgr.LoadLoopCustomSnapshot();
                 }
-                DrawButtonTooltip(L("Save current lab state as the loop restart snapshot.").c_str());
-                if (customReady) {
-                    if (ImGui::Button(L("Load").c_str(), ImVec2(-1.0f, 0))) {
-                        mgr.LoadLoopCustomSnapshot();
-                    }
-                    DrawButtonTooltip(L("Restore the saved loop snapshot now for verification.").c_str());
-                }
-                ImGui::TextColored(
-                    customReady ? ImVec4(0.25f, 0.9f, 0.45f, 1.0f) : ImVec4(0.95f, 0.55f, 0.35f, 1.0f),
-                    "%s",
-                    customReady ? L("Snapshot loaded").c_str() : L("No snapshot loaded").c_str());
-            } else {
-                const bool positionReady = mgr.IsLoopSnapshotReadyForMode(currentResetMode);
-                ImGui::TextColored(
-                    positionReady ? ImVec4(0.25f, 0.9f, 0.45f, 1.0f) : ImVec4(0.65f, 0.65f, 0.65f, 1.0f),
-                    "%s",
-                    positionReady
-                        ? L("Reset position snapshot ready").c_str()
-                        : L("Position set up automatically when the loop starts").c_str());
+                DrawButtonTooltip(L("Restore the saved loop snapshot now for verification.").c_str());
             }
+            ImGui::TextColored(
+                mgr.HasLoopCustomSnapshot() ? ImVec4(0.25f, 0.9f, 0.45f, 1.0f) : ImVec4(0.95f, 0.55f, 0.35f, 1.0f),
+                "%s",
+                mgr.HasLoopCustomSnapshot() ? L("Snapshot loaded").c_str() : L("No snapshot loaded").c_str());
         }
-    }
-    if (mgr.IsLoopPositionSetupActive()) {
-        // Deliberately NOT a modal: a focused ImGui window sets WantCaptureKeyboard, which makes
-        // PassKeyboardInputToGame() freeze the game's keyboard state (hooks_bbcf.cpp) and the
-        // forced reset combo's key releases would never reach the game.
-        const ImGuiIO& io = ImGui::GetIO();
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.25f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-        if (ImGui::Begin("##up_loop_position_setup_banner", nullptr,
-            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing |
-            ImGuiWindowFlags_NoSavedSettings)) {
-            ImGui::TextUnformatted(L("Setting up loop reset position...").c_str());
-            ImGui::TextUnformatted(L("Inputs are temporarily overridden; this happens once per lab session.").c_str());
-        }
-        ImGui::End();
     }
     float loopSetupRemaining = 0.0f;
     float loopSetupTotal = 0.0f;
@@ -1334,8 +1211,7 @@ void UnlimitedPlaybackWindow::Draw() {
         CenterNextButtonsRow(170.0f + ImGui::GetStyle().ItemSpacing.x);
         if (ImGui::Button(L("Reset").c_str())) {
             mgr.ClearAll();
-            selectedEntries.clear();
-            selectionAnchor = -1;
+            selectedEntry = -1;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
@@ -1344,7 +1220,7 @@ void UnlimitedPlaybackWindow::Draw() {
         }
         ImGui::EndPopup();
     }
-    if (openDeleteEntryConfirmModal && !entriesPendingDelete.empty()) {
+    if (openDeleteEntryConfirmModal && entryPendingDelete >= 0 && entryPendingDelete < static_cast<int>(mgr.GetEntries().size())) {
         const ImVec2 displayCenter = ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f);
         ImGui::SetNextWindowPos(displayCenter, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowSize(ImVec2(500.0f, 0.0f), ImGuiCond_Appearing);
@@ -1352,48 +1228,23 @@ void UnlimitedPlaybackWindow::Draw() {
         openDeleteEntryConfirmModal = false;
     }
     if (ImGui::BeginPopupModal(L("Delete Entry?").c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        if (entriesPendingDelete.size() > 1) {
-            DrawCenteredPopupText(FormatText(
-                L("Delete these %d playback entries from the library?").c_str(),
-                static_cast<int>(entriesPendingDelete.size())).c_str());
-        } else {
-            DrawCenteredPopupText(L("Delete this playback entry from the library?").c_str());
-        }
+        DrawCenteredPopupText(L("Delete this playback entry from the library?").c_str());
         CenterNextButtonsRow(190.0f + ImGui::GetStyle().ItemSpacing.x);
         if (ImGui::Button(FormatText("%s##confirm_entry", L("Delete").c_str()).c_str())) {
-            std::vector<size_t> indicesToDelete(entriesPendingDelete.begin(), entriesPendingDelete.end());
-            mgr.RemoveEntriesByIndices(indicesToDelete);
-            std::sort(entriesPendingDelete.begin(), entriesPendingDelete.end());
-            const auto shiftAfterDeletes = [](int idx) {
-                int shifted = idx;
-                for (int deletedIdx : entriesPendingDelete) {
-                    if (deletedIdx < idx) {
-                        --shifted;
-                    }
-                }
-                return shifted;
-            };
-            std::set<int> adjustedSelection;
-            for (int idx : selectedEntries) {
-                if (std::find(entriesPendingDelete.begin(), entriesPendingDelete.end(), idx) != entriesPendingDelete.end()) {
-                    continue;
-                }
-                adjustedSelection.insert(shiftAfterDeletes(idx));
-            }
-            selectedEntries = adjustedSelection;
-            if (selectionAnchor >= 0) {
-                if (std::find(entriesPendingDelete.begin(), entriesPendingDelete.end(), selectionAnchor) != entriesPendingDelete.end()) {
-                    selectionAnchor = -1;
-                } else {
-                    selectionAnchor = shiftAfterDeletes(selectionAnchor);
+            if (entryPendingDelete >= 0 && entryPendingDelete < static_cast<int>(mgr.GetEntries().size())) {
+                mgr.RemoveEntryByIndex(static_cast<size_t>(entryPendingDelete));
+                if (selectedEntry == entryPendingDelete) {
+                    selectedEntry = -1;
+                } else if (selectedEntry > entryPendingDelete) {
+                    --selectedEntry;
                 }
             }
-            entriesPendingDelete.clear();
+            entryPendingDelete = -1;
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
         if (ImGui::Button(FormatText("%s##confirm_entry", L("Cancel").c_str()).c_str())) {
-            entriesPendingDelete.clear();
+            entryPendingDelete = -1;
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
@@ -1426,15 +1277,9 @@ void UnlimitedPlaybackWindow::Draw() {
             if (ImGui::Button(FormatText("%s##set_index", L("Move").c_str()).c_str())) {
                 const int from = entryPendingSetIndex;
                 const int to = entrySetIndexValue - 1;
+                const int oldSelectedEntry = selectedEntry;
                 if (mgr.MoveEntry(static_cast<size_t>(from), static_cast<size_t>(to))) {
-                    std::set<int> adjustedSelection;
-                    for (int idx : selectedEntries) {
-                        adjustedSelection.insert(AdjustSelectedEntryAfterMove(idx, from, to));
-                    }
-                    selectedEntries = adjustedSelection;
-                    if (selectionAnchor >= 0) {
-                        selectionAnchor = AdjustSelectedEntryAfterMove(selectionAnchor, from, to);
-                    }
+                    selectedEntry = AdjustSelectedEntryAfterMove(oldSelectedEntry, from, to);
                 }
                 entryPendingSetIndex = -1;
                 ImGui::CloseCurrentPopup();

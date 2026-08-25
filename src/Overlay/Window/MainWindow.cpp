@@ -6,7 +6,6 @@
 #include "FrameHistory/FrameHistoryWindow.h"
 #include "FrameAdvantage/FrameAdvantageWindow.h"
 #include "Ranked/RankedProgressWindow.h"
-#include "SettingsIniWindow.h"
 
 #include "Core/Settings.h"
 #include "Core/logger.h"
@@ -26,6 +25,9 @@
 
 #include "imgui_internal.h"
 
+#include <algorithm>
+#include <cstring>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -75,17 +77,23 @@ void MainWindow::Draw()
 	DrawLanguageSelector();
 
 	ImGui::HorizontalSpacing();
-	m_settingsIniWindow.DrawOpenButton();
+	bool generateDebugLogs = Settings::settingsIni.generateDebugLogs;
+	if (ImGui::Checkbox(Messages.Generate_Debug_Logs(), &generateDebugLogs))
+	{
+		Settings::settingsIni.generateDebugLogs = generateDebugLogs;
+		Settings::changeSetting("GenerateDebugLogs", generateDebugLogs ? "1" : "0");
+		SetLoggingEnabled(generateDebugLogs);
+	}
 	ImGui::SameLine();
-	m_palettesConfigWindow.DrawOpenButton();
+	ImGui::ShowHelpMarker(Messages.Debug_log_details());
+	ImGui::SameLine();
+	DrawSettingsIniButton();
 
 	ImGui::AlignTextToFramePadding();
 	ImGui::TextUnformatted("P$"); ImGui::SameLine();
 	if (g_gameVals.pGameMoney)
 	{
 		ImGui::InputInt("##P$", *&g_gameVals.pGameMoney);
-		ImGui::SameLine();
-		ImGui::ShowHelpMarker(Messages.Player_money_tooltip());
 	}
 
 	ImGui::VerticalSpacing(5);
@@ -98,8 +106,7 @@ void MainWindow::Draw()
 	DrawFrameAdvantageSection();
 	DrawAvatarSection();
 	DrawControllerSettingSection();
-	m_settingsIniWindow.DrawModal();
-	m_palettesConfigWindow.DrawModal();
+	DrawSettingsIniModal();
 	DrawUtilButtons();
 
 	ImGui::VerticalSpacing(5);
@@ -133,21 +140,22 @@ void MainWindow::DrawLanguageSelector()
 
 	if (ImGui::BeginCombo(Messages.Language(), preview.c_str()))
 	{
-		for (size_t i = 0; i < options.size(); ++i)
-		{
-			const auto& option = options[i];
-			const bool optionComplete = option.complete;
-			const std::string languageCode = option.code;
+                for (size_t i = 0; i < options.size(); ++i)
+                {
+                        const auto& option = options[i];
+                        const bool optionComplete = option.complete;
+                        const std::string languageCode = option.code;
 
-			std::string label = option.displayName;
+                        std::string label = option.displayName;
+                        if (!optionComplete)
+                        {
+                                label += Messages.Language_incomplete_label();
+                        }
+
 			if (!optionComplete)
 			{
-				label += Messages.Language_incomplete_label();
-			}
-
-			if (!optionComplete)
-			{
-				ImGui::BeginDisabled();
+				ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+				ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
 			}
 
 			bool selected = currentIndex == static_cast<int>(i);
@@ -160,7 +168,8 @@ void MainWindow::DrawLanguageSelector()
 
 			if (!optionComplete)
 			{
-				ImGui::EndDisabled();
+				ImGui::PopStyleVar();
+				ImGui::PopItemFlag();
 			}
 		}
 
@@ -181,36 +190,22 @@ void MainWindow::DrawLanguageSelector()
 void MainWindow::DrawUtilButtons() const
 {
 #ifdef _DEBUG
-	const bool showDebugButton = true;
-#else
-	// Debug builds always get the DEBUG window; other builds only show it once
-	// the user opts into dev/diagnostic tooling (settings.def: EnableInDevelopmentFeatures).
-	const bool showDebugButton = Settings::settingsIni.enableInDevelopmentFeatures;
-#endif
-	if (showDebugButton)
+	if (ImGui::Button("DEBUG", BTN_SIZE))
 	{
-		if (ImGui::Button("DEBUG", BTN_SIZE))
-		{
-			m_pWindowContainer->GetWindow(WindowType_Debug)->ToggleOpen();
-		}
-		ImGui::SameLine();
-		ImGui::ShowHelpMarker(Messages.Debug_window_tooltip());
-		ImGui::SameLine();
+		m_pWindowContainer->GetWindow(WindowType_Debug)->ToggleOpen();
 	}
+	ImGui::SameLine();
+#endif
 
 	if (ImGui::Button(Messages.Log(), BTN_SIZE))
 	{
 		m_pWindowContainer->GetWindow(WindowType_Log)->ToggleOpen();
 	}
 	ImGui::SameLine();
-	ImGui::ShowHelpMarker(Messages.Log_window_tooltip());
-	ImGui::SameLine();
 	if (ImGui::Button(Messages.States(), BTN_SIZE))
 	{
 		m_pWindowContainer->GetWindow(WindowType_Scr)->ToggleOpen();
 	}
-	ImGui::SameLine();
-	ImGui::ShowHelpMarker(Messages.States_window_tooltip());
 }
 
 void MainWindow::DrawCurrentPlayersCount() const
@@ -235,13 +230,9 @@ void MainWindow::DrawAvatarSection() const
 	else
 	{
 		ImGui::HorizontalSpacing(); ImGui::SliderInt(Messages.Avatar(), g_gameVals.playerAvatarAddr, 0, 0x2F);
-		ImGui::SameLine(); ImGui::ShowHelpMarker(Messages.Avatar_icon_tooltip());
 		ImGui::HorizontalSpacing(); ImGui::SliderInt(Messages.Color(), g_gameVals.playerAvatarColAddr, 0, 0x3);
-		ImGui::SameLine(); ImGui::ShowHelpMarker(Messages.Avatar_color_tooltip());
 		ImGui::HorizontalSpacing(); ImGui::SliderByte(Messages.Accessory_1(), g_gameVals.playerAvatarAcc1, 0, 0xCF);
-		ImGui::SameLine(); ImGui::ShowHelpMarker(Messages.Avatar_accessory1_tooltip());
 		ImGui::HorizontalSpacing(); ImGui::SliderByte(Messages.Accessory_2(), g_gameVals.playerAvatarAcc2, 0, 0xCF);
-		ImGui::SameLine(); ImGui::ShowHelpMarker(Messages.Avatar_accessory2_tooltip());
 	}
 }
 
@@ -266,39 +257,28 @@ void MainWindow::DrawFrameHistorySection() const
 	//	ImGui::TextDisabled("THIS FEATURE CURRENTLY DOES NOT SUPPORT MIRRORS! IF IT ISN'T A MIRROR THERE WAS AN ERROR LOADING ONE OF THE CHARACTERS");
 	//	return;
 	//}
+	static bool isOpen = false;
+
 	FrameHistoryWindow* frameHistWin = m_pWindowContainer->GetWindow<FrameHistoryWindow>(WindowType_FrameHistory);
 
+
 	ImGui::HorizontalSpacing();
-	bool isOpen = Settings::settingsIni.frameHistoryEnabled;
-	if (ImGui::Checkbox(Messages.Enable_framehistory_section(), &isOpen))
-	{
-		Settings::settingsIni.frameHistoryEnabled = isOpen;
-		Settings::changeSetting("FrameHistoryEnabled", isOpen ? "1" : "0");
-	}
+	ImGui::Checkbox(Messages.Enable_framehistory_section(), &isOpen);
 	ImGui::SameLine();
 	ImGui::ShowHelpMarker(Messages.FrameHistory_help());
 	if (isOpen)
+	{
 		frameHistWin->Open();
+	}
 	else
+	{
 		frameHistWin->Close();
+	}
 
 	ImGui::HorizontalSpacing();
-	if (ImGui::Checkbox(Messages.Auto_Reset_Reset_after_each_idle_frame(), &frameHistWin->resetting))
-	{
-		Settings::settingsIni.frameHistoryAutoReset = frameHistWin->resetting;
-		Settings::changeSetting("FrameHistoryAutoReset", frameHistWin->resetting ? "1" : "0");
-	}
+	ImGui::Checkbox(Messages.Auto_Reset_Reset_after_each_idle_frame(), &frameHistWin->resetting);
 	ImGui::SameLine();
 	ImGui::ShowHelpMarker(Messages.FrameHistory_auto_reset_help());
-
-	ImGui::HorizontalSpacing();
-	if (ImGui::Checkbox(Messages.Count_empty_frames_framehistory(), &frameHistWin->countEmptyFrames))
-	{
-		Settings::settingsIni.frameHistoryCountEmptyFrames = frameHistWin->countEmptyFrames;
-		Settings::changeSetting("FrameHistoryCountEmptyFrames", frameHistWin->countEmptyFrames ? "1" : "0");
-	}
-	ImGui::SameLine();
-	ImGui::ShowHelpMarker(Messages.FrameHistory_count_empty_frames_help());
 
 	ImGui::HorizontalSpacing();
 	if (ImGui::SliderFloat(Messages.Box_width(), &frameHistWin->width, 1., 100.)) {
@@ -342,13 +322,9 @@ void MainWindow::DrawFrameAdvantageSection() const
 	static bool isFrameAdvantageOpen = false;
 	ImGui::HorizontalSpacing();
 	ImGui::Checkbox(Messages.Enable_framedata_section(), &isFrameAdvantageOpen);
-	ImGui::SameLine();
-	ImGui::ShowHelpMarker(Messages.Enable_framedata_tooltip());
 	//ImGui::Checkbox("Enable##framedata_section", &isFrameAdvantageOpen);
 	ImGui::HorizontalSpacing();
 	ImGui::Checkbox(Messages.Advantage_on_stagger_hit(), &idleActionToggles.ukemiStaggerHit);
-	ImGui::SameLine();
-	ImGui::ShowHelpMarker(Messages.Advantage_stagger_hit_tooltip());
 
 	if (isFrameAdvantageOpen)
 	{
@@ -388,8 +364,6 @@ void MainWindow::DrawCustomPalettesSection() const
 
 		if (ImGui::Button(Messages.Palette_editor()))
 			m_pWindowContainer->GetWindow(WindowType_PaletteEditor)->ToggleOpen();
-		ImGui::SameLine();
-		ImGui::ShowHelpMarker(Messages.Palette_editor_tooltip());
 	}
 }
 
@@ -408,10 +382,7 @@ void MainWindow::DrawHitboxOverlaySection() const
 	static bool isOpen = false;
 
 	ImGui::HorizontalSpacing();
-	bool hitboxOverlayToggled = ImGui::Checkbox(Messages.Enable_hitbox_overlay_section(), &isOpen);
-	ImGui::SameLine();
-	ImGui::ShowHelpMarker(Messages.Enable_hitbox_overlay_tooltip());
-	if (hitboxOverlayToggled)
+	if (ImGui::Checkbox(Messages.Enable_hitbox_overlay_section(), &isOpen))
 	{
 		if (isOpen)
 		{
@@ -454,18 +425,16 @@ void MainWindow::DrawHitboxOverlaySection() const
 		ImGui::HorizontalSpacing();
 		ImGui::Checkbox(Messages.Draw_hitbox_hurtbox(),
 			&m_pWindowContainer->GetWindow<HitboxOverlay>(WindowType_HitboxOverlay)->drawHitboxHurtbox);
-		ImGui::SameLine();
-		ImGui::ShowHelpMarker(Messages.Draw_hitbox_hurtbox_tooltip());
 		ImGui::HorizontalSpacing();
 		ImGui::Checkbox(Messages.Draw_origin(),
 			&m_pWindowContainer->GetWindow<HitboxOverlay>(WindowType_HitboxOverlay)->drawOriginLine);
 		ImGui::SameLine();
-		ImGui::ShowHelpMarker(Messages.Origin_point_note());
+ImGui::ShowHelpMarker(Messages.Origin_point_note());
 		ImGui::HorizontalSpacing();
 		ImGui::Checkbox(Messages.Draw_collision(),
 			&m_pWindowContainer->GetWindow<HitboxOverlay>(WindowType_HitboxOverlay)->drawCollisionBoxes);
 		ImGui::SameLine();
-		ImGui::ShowHelpMarker(Messages.Collision_box_note());
+ImGui::ShowHelpMarker(Messages.Collision_box_note());
 		ImGui::HorizontalSpacing();
 		ImGui::Checkbox(Messages.Draw_throw_range_boxes(),
 			&m_pWindowContainer->GetWindow<HitboxOverlay>(WindowType_HitboxOverlay)->drawRangeCheckBoxes);
@@ -475,9 +444,7 @@ void MainWindow::DrawHitboxOverlaySection() const
 
 		ImGui::HorizontalSpacing();
 		ImGui::Checkbox(Messages.Freeze_frame(), &g_gameVals.isFrameFrozen);
-		ImGui::SameLine();
-		ImGui::ShowHelpMarker(Messages.Freeze_frame_tooltip());
-		if (!IsTypingInImGuiTextField() && ImGui::IsVirtualKeyPressed(g_modVals.freeze_frame_keycode))
+		if (ImGui::IsKeyPressed(g_modVals.freeze_frame_keycode))
 			g_gameVals.isFrameFrozen ^= 1;
 
 		if (g_gameVals.pFrameCount)
@@ -490,26 +457,19 @@ void MainWindow::DrawHitboxOverlaySection() const
 				*g_gameVals.pFrameCount = 0;
 				g_gameVals.framesToReach = 0;
 			}
-			ImGui::SameLine();
-			ImGui::ShowHelpMarker(Messages.Reset_frame_counter_tooltip());
 		}
 
 		if (g_gameVals.isFrameFrozen)
 		{
 			static int framesToStep = 1;
 			ImGui::HorizontalSpacing();
-			if (ImGui::Button(Messages.Step_frames()) ||
-				(!IsTypingInImGuiTextField() && ImGui::IsVirtualKeyPressed(g_modVals.step_frames_keycode)))
+			if (ImGui::Button(Messages.Step_frames()) || ImGui::IsKeyPressed(g_modVals.step_frames_keycode))
 			{
 				g_gameVals.framesToReach = *g_gameVals.pFrameCount + framesToStep;
 			}
-			ImGui::SameLine();
-			ImGui::ShowHelpMarker(Messages.Step_frames_tooltip());
 
 			ImGui::SameLine();
 			ImGui::SliderInt("", &framesToStep, 1, 60);
-			ImGui::SameLine();
-			ImGui::ShowHelpMarker(Messages.Step_frames_count_tooltip());
 		}
 	}
 }
@@ -559,8 +519,6 @@ void MainWindow::DrawGameplaySettingSection() const
 		ImGui::VerticalSpacing(10);
 		ImGui::HorizontalSpacing();
 		ImGui::Checkbox(Messages.Hide_HUD_checkbox(), (bool*)g_gameVals.pIsHUDHidden);
-		ImGui::SameLine();
-		ImGui::ShowHelpMarker(Messages.Hide_HUD_tooltip());
 	}
 }
 
@@ -601,7 +559,207 @@ void MainWindow::DrawLinkButtons() const
 	ImGui::SameLine();
 	if (ImGui::Button("Releases##checker", BTN_SIZE))
 		m_pWindowContainer->GetWindow(WindowType_ReleaseChecker)->ToggleOpen();
-	ImGui::SameLine();
-	ImGui::ShowHelpMarker(Messages.Releases_checker_tooltip());
 
+}
+
+namespace {
+	// --- value widgets: return true if the value changed this frame ---
+
+	static bool DrawValueWidget(const char* id, bool& val)
+	{
+		return ImGui::Checkbox(id, &val);
+	}
+	static bool DrawValueWidget(const char* id, int& val)
+	{
+		ImGui::PushItemWidth(-1);
+		bool r = ImGui::InputInt(id, &val);
+		ImGui::PopItemWidth();
+		return r;
+	}
+	static bool DrawValueWidget(const char* id, float& val)
+	{
+		ImGui::PushItemWidth(-1);
+		bool r = ImGui::InputFloat(id, &val, 0.0f, 0.0f, 4);
+		ImGui::PopItemWidth();
+		return r;
+	}
+	static bool DrawValueWidget(const char* id, std::string& val)
+	{
+		char buf[1024];
+		strncpy_s(buf, sizeof(buf), val.c_str(), _TRUNCATE);
+		ImGui::PushItemWidth(-1);
+		bool r = ImGui::InputText(id, buf, sizeof(buf));
+		ImGui::PopItemWidth();
+		if (r) val = buf;
+		return r;
+	}
+
+	// --- restart-required key set ---
+
+	static bool IsRestartRequired(const char* iniKey)
+	{
+		static const char* const kRestartKeys[] = {
+			"RenderingWidth", "RenderingHeight", "Viewport", "AntiAliasing", "V-sync", "MenuSize",
+			"DinputDllWrapper",
+			"SwapControllerPos", "EnableControllerHooks", "ForceEnableControllerSettingHooks",
+			"PrimaryKeyboardDeviceId", "IgnoredKeyboardIds", "KeyboardRenameMap", "KeyboardMappings",
+			nullptr
+		};
+		for (int i = 0; kRestartKeys[i]; ++i)
+			if (_stricmp(iniKey, kRestartKeys[i]) == 0) return true;
+		return false;
+	}
+
+	// --- serialization ---
+
+	static std::string SettingValueToString(bool val)   { return val ? "1" : "0"; }
+	static std::string SettingValueToString(int val)    { return std::to_string(val); }
+	static std::string SettingValueToString(float val)
+	{
+		std::ostringstream oss;
+		oss << val;
+		return oss.str();
+	}
+	static std::string SettingValueToString(const std::string& val) { return val; }
+}
+
+void MainWindow::DrawSettingsIniButton()
+{
+	if (ImGui::Button("Settings.ini"))
+	{
+		m_settingsDraft = Settings::settingsIni;
+		m_settingsSortOrder = SettingsSortOrder::Default;
+
+		// Build row list. Each row has a draw lambda (returns true if the widget changed this frame)
+		// and a differsFromOriginal lambda (compares draft vs live settings, checked only on change).
+		m_settingRows.clear();
+		m_needsRestart = false;
+#define SETTING(_type, _var, _inistring, _defaultval) \
+		m_settingRows.push_back({ \
+			_inistring, \
+			[this]() -> bool { \
+				char buf[128] = "##"; \
+				strncat_s(buf, sizeof(buf), _inistring, _TRUNCATE); \
+				return DrawValueWidget(buf, m_settingsDraft._var); \
+			}, \
+			[this]() -> bool { return m_settingsDraft._var != Settings::settingsIni._var; }, \
+			IsRestartRequired(_inistring) \
+		});
+#include "Core/settings.def"
+#undef SETTING
+
+		ImGui::OpenPopup("Settings.ini##modal");
+	}
+}
+
+void MainWindow::DrawSettingsIniModal()
+{
+	if (m_settingRows.empty())
+		return;
+
+	const float footerHeight = m_needsRestart ? 60.0f : 36.0f;
+
+	ImGui::SetNextWindowSize(ImVec2(560, 580), ImGuiCond_Always);
+	if (!ImGui::BeginPopupModal("Settings.ini##modal", nullptr, ImGuiWindowFlags_NoResize))
+		return;
+
+	ImGui::BeginChild("##settings_scroll", ImVec2(0, -footerHeight), true);
+
+	ImGui::Columns(2, "##settings_cols", true);
+	ImGui::SetColumnWidth(0, 260.0f);
+
+	// Clickable header to cycle sort order
+	const char* sortSuffix =
+		m_settingsSortOrder == SettingsSortOrder::Ascending  ? " [A-Z]" :
+		m_settingsSortOrder == SettingsSortOrder::Descending ? " [Z-A]" : " [--]";
+	char sortHdr[32];
+	snprintf(sortHdr, sizeof(sortHdr), "Setting%s", sortSuffix);
+	if (ImGui::Selectable(sortHdr))
+	{
+		if (m_settingsSortOrder == SettingsSortOrder::Default)
+			m_settingsSortOrder = SettingsSortOrder::Ascending;
+		else if (m_settingsSortOrder == SettingsSortOrder::Ascending)
+			m_settingsSortOrder = SettingsSortOrder::Descending;
+		else
+			m_settingsSortOrder = SettingsSortOrder::Default;
+	}
+	ImGui::NextColumn();
+	ImGui::TextUnformatted("Value");
+	ImGui::NextColumn();
+	ImGui::Separator();
+
+	// Build sorted index over m_settingRows
+	const size_t rowCount = m_settingRows.size();
+	std::vector<size_t> order(rowCount);
+	for (size_t i = 0; i < rowCount; ++i) order[i] = i;
+	if (m_settingsSortOrder == SettingsSortOrder::Ascending)
+		std::sort(order.begin(), order.end(), [this](size_t a, size_t b) {
+			return m_settingRows[a].name < m_settingRows[b].name;
+		});
+	else if (m_settingsSortOrder == SettingsSortOrder::Descending)
+		std::sort(order.begin(), order.end(), [this](size_t a, size_t b) {
+			return m_settingRows[a].name > m_settingRows[b].name;
+		});
+
+	bool anyRestartRowChangedThisFrame = false;
+	for (size_t i = 0; i < rowCount; ++i)
+	{
+		SettingRow& row = m_settingRows[order[i]];
+		ImGui::TextUnformatted(row.name.c_str());
+		ImGui::NextColumn();
+		if (row.draw() && row.isRestartRequired)
+			anyRestartRowChangedThisFrame = true;
+		ImGui::NextColumn();
+	}
+
+	// Only recompute m_needsRestart when a restart-relevant widget actually changed
+	if (anyRestartRowChangedThisFrame)
+	{
+		m_needsRestart = false;
+		for (SettingRow& row : m_settingRows)
+			if (row.isRestartRequired && row.differsFromOriginal()) {
+				m_needsRestart = true;
+				break;
+			}
+	}
+
+	ImGui::Columns(1);
+	ImGui::EndChild();
+
+	if (m_needsRestart)
+		ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f),
+			"Some changes require a restart to take effect.");
+
+	if (ImGui::Button("Cancel", ImVec2(120, 0)))
+		ImGui::CloseCurrentPopup();
+
+	ImGui::SameLine();
+
+	const char* saveLabel = m_needsRestart ? "Save and Restart" : "Save";
+	if (ImGui::Button(saveLabel, ImVec2(m_needsRestart ? 150.0f : 120.0f, 0)))
+	{
+#define SETTING(_type, _var, _inistring, _defaultval) \
+		if (m_settingsDraft._var != Settings::settingsIni._var) { \
+			Settings::changeSetting(_inistring, SettingValueToString(m_settingsDraft._var)); \
+			Settings::settingsIni._var = m_settingsDraft._var; \
+		}
+#include "Core/settings.def"
+#undef SETTING
+
+		ImGui::CloseCurrentPopup();
+
+		if (m_needsRestart)
+		{
+			wchar_t exePath[MAX_PATH] = {};
+			GetModuleFileNameW(NULL, exePath, MAX_PATH);
+			STARTUPINFOW si = { sizeof(si) };
+			PROCESS_INFORMATION pi = {};
+			CreateProcessW(exePath, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+			CloseHandle(pi.hProcess);
+			CloseHandle(pi.hThread);
+			ExitProcess(0);
+		}
+	}
+
+	ImGui::EndPopup();
 }

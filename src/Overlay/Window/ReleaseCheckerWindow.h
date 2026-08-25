@@ -21,15 +21,12 @@ protected:
 private:
 	enum class FetchState { Idle, Fetching, Loaded, Error };
 
-	// forceRefresh=true bypasses the releases cache; used by the Refresh button so the user
-	// can always pull fresh data, while the automatic first fetch reuses the startup check's.
-	void StartFetch(bool forceRefresh = false);
+	void StartFetch();
 	void DrawRelease(const Updater::GitHubRelease& release, size_t idx,
 		bool isCurrent, int versionCmp, bool coordinatorBusy);
 
 	static DWORD WINAPI FetchThreadProc(LPVOID param);
 	void FetchThread();
-	bool m_forceRefresh = false;
 
 	CRITICAL_SECTION m_lock;
 	FetchState m_fetchState = FetchState::Idle;

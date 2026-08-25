@@ -4,9 +4,6 @@
 
 #include "Core/logger.h"
 #include "Core/interfaces.h"
-#include "Core/Settings.h"
-#include "Game/gamestates.h"
-
 OnlinePaletteManager::OnlinePaletteManager(PaletteManager* pPaletteManager, CharPaletteHandle* pP1CharPalHandle,
 	CharPaletteHandle* pP2CharPalHandle, RoomManager* pRoomManager)
 	: m_pPaletteManager(pPaletteManager), m_pP1CharPalHandle(pP1CharPalHandle), 
@@ -31,8 +28,6 @@ void OnlinePaletteManager::SendPalettePackets()
 		return;
 	}
 
-	SendPaletteDownloadPermissionPacket(thisPlayerMatchPlayerIndex);
-	SendPlatinumVoiceChoicePacket(thisPlayerMatchPlayerIndex);
 	SendPaletteInfoPacket(charPalHandle, thisPlayerMatchPlayerIndex);
 	SendPaletteDataPackets(charPalHandle, thisPlayerMatchPlayerIndex);
 }
@@ -40,9 +35,6 @@ void OnlinePaletteManager::SendPalettePackets()
 void OnlinePaletteManager::RecvPaletteDataPacket(Packet* packet)
 {
 	LOG(2, "OnlinePaletteManager::RecvPaletteDataPacket\n");
-
-	if (!g_modVals.enableForeignPalettes)
-		return;
 
 	uint16_t matchPlayerIndex = m_pRoomManager->GetPlayerMatchPlayerIndexByRoomMemberIndex(packet->roomMemberIndex);
 	CharPaletteHandle& charPalHandle = GetPlayerCharPaletteHandle(matchPlayerIndex);
@@ -55,15 +47,15 @@ void OnlinePaletteManager::RecvPaletteDataPacket(Packet* packet)
 		return;
 	}
 
-	m_pPaletteManager->ReplacePaletteFile((const char*)packet->data, (PaletteFile)packet->part, charPalHandle);
+	if (g_modVals.enableForeignPalettes)
+	{
+		m_pPaletteManager->ReplacePaletteFile((const char*)packet->data, (PaletteFile)packet->part, charPalHandle);
+	}
 }
 
 void OnlinePaletteManager::RecvPaletteInfoPacket(Packet* packet)
 {
 	LOG(2, "OnlinePaletteManager::RecvPaletteInfoPacket\n");
-
-	if (!g_modVals.enableForeignPalettes)
-		return;
 
 	uint16_t matchPlayerIndex = m_pRoomManager->GetPlayerMatchPlayerIndexByRoomMemberIndex(packet->roomMemberIndex);
 	CharPaletteHandle& charPalHandle = GetPlayerCharPaletteHandle(matchPlayerIndex);
@@ -76,47 +68,10 @@ void OnlinePaletteManager::RecvPaletteInfoPacket(Packet* packet)
 		return;
 	}
 
-	m_pPaletteManager->SetCurrentPalInfo(charPalHandle, *(IMPL_info_t*)packet->data);
-}
-
-void OnlinePaletteManager::RecvPaletteDownloadPermissionPacket(Packet* packet)
-{
-	LOG(2, "OnlinePaletteManager::RecvPaletteDownloadPermissionPacket\n");
-
-	uint16_t matchPlayerIndex = m_pRoomManager->GetPlayerMatchPlayerIndexByRoomMemberIndex(packet->roomMemberIndex);
-	if (matchPlayerIndex > 1 || packet->dataSize < sizeof(bool))
-		return;
-
-	bool allowDownload = false;
-	memcpy_s(&allowDownload, sizeof(allowDownload), packet->data, sizeof(allowDownload));
-	m_playerPaletteDownloadPermissions[matchPlayerIndex] =
-		allowDownload ? PaletteDownloadPermission::Granted : PaletteDownloadPermission::Denied;
-}
-
-void OnlinePaletteManager::RecvPlatinumVoiceChoicePacket(Packet* packet)
-{
-	LOG(2, "OnlinePaletteManager::RecvPlatinumVoiceChoicePacket\n");
-
-	uint16_t matchPlayerIndex = m_pRoomManager->GetPlayerMatchPlayerIndexByRoomMemberIndex(packet->roomMemberIndex);
-	if (matchPlayerIndex > 1 || packet->dataSize < sizeof(uint8_t))
-		return;
-
-	uint8_t choice = 0;
-	memcpy_s(&choice, sizeof(choice), packet->data, sizeof(choice));
-	if (choice > 2)
-		choice = 0;
-
-	m_playerVoiceChoices[matchPlayerIndex] = (int8_t)choice;
-	LOG(2, "[PlatVoice] recv opponent voice choice=%u for matchPlayerIndex=%u\n", choice, matchPlayerIndex);
-}
-
-int OnlinePaletteManager::GetPlayerVoiceChoice(uint16_t matchPlayerIndex) const
-{
-	if (matchPlayerIndex > 1)
-		return 0;
-
-	const int8_t choice = m_playerVoiceChoices[matchPlayerIndex];
-	return choice > 0 ? choice : 0; // -1 (none) / 0 (Default) -> leave vanilla RNG
+	if (g_modVals.enableForeignPalettes)
+	{
+		m_pPaletteManager->SetCurrentPalInfo(charPalHandle, *(IMPL_info_t*)packet->data);
+	}
 }
 
 void OnlinePaletteManager::ProcessSavedPalettePackets()
@@ -138,20 +93,12 @@ void OnlinePaletteManager::ClearSavedPalettePacketQueues()
 	m_unprocessedPaletteFiles = {};
 	m_matchInitPending = false;
 	m_loggedMatchInitWait = false;
-	m_playerPaletteDownloadPermissions[0] = PaletteDownloadPermission::Unknown;
-	m_playerPaletteDownloadPermissions[1] = PaletteDownloadPermission::Unknown;
-	m_playerVoiceChoices[0] = -1;
-	m_playerVoiceChoices[1] = -1;
 }
 
 void OnlinePaletteManager::OnMatchInit()
 {
 	LOG(2, "OnlinePaletteManager::OnMatchInit\n");
 
-	m_playerPaletteDownloadPermissions[0] = PaletteDownloadPermission::Unknown;
-	m_playerPaletteDownloadPermissions[1] = PaletteDownloadPermission::Unknown;
-	m_playerVoiceChoices[0] = -1;
-	m_playerVoiceChoices[1] = -1;
 	m_matchInitPending = true;
 	m_loggedMatchInitWait = false;
 	OnUpdate();
@@ -196,50 +143,6 @@ void OnlinePaletteManager::OnUpdate()
 	}
 
 	ProcessSavedPalettePackets();
-}
-
-bool OnlinePaletteManager::CanDownloadPalette(uint16_t matchPlayerIndex) const
-{
-	return GetDownloadPermission(matchPlayerIndex) == PaletteDownloadPermission::Granted;
-}
-
-OnlinePaletteManager::PaletteDownloadPermission OnlinePaletteManager::GetDownloadPermission(uint16_t matchPlayerIndex) const
-{
-	if (matchPlayerIndex > 1)
-		return PaletteDownloadPermission::Unknown;
-
-	return m_playerPaletteDownloadPermissions[matchPlayerIndex];
-}
-
-void OnlinePaletteManager::SendPaletteDownloadPermissionPacket(uint16_t roomMemberIndex)
-{
-	LOG(2, "OnlinePaletteManager::SendPaletteDownloadPermissionPacket\n");
-
-	// Unset (-1) counts as not having given permission.
-	bool allowDownload = Settings::settingsIni.allowPaletteDownloads == 1;
-	Packet packet = Packet(
-		(char*)&allowDownload,
-		(uint16_t)sizeof(allowDownload),
-		PacketType_PaletteDownloadPermission,
-		roomMemberIndex
-	);
-
-	m_pRoomManager->SendPacketToSameMatchIMPlayers(&packet);
-}
-
-void OnlinePaletteManager::SendPlatinumVoiceChoicePacket(uint16_t roomMemberIndex)
-{
-	LOG(2, "OnlinePaletteManager::SendPlatinumVoiceChoicePacket\n");
-
-	uint8_t choice = (uint8_t)Settings::settingsIni.platinumVoiceChoice;
-	Packet packet(
-		(char*)&choice,
-		(uint16_t)sizeof(choice),
-		PacketType_PlatinumVoiceChoice,
-		roomMemberIndex
-	);
-
-	m_pRoomManager->SendPacketToSameMatchIMPlayers(&packet);
 }
 
 void OnlinePaletteManager::SendPaletteInfoPacket(CharPaletteHandle& charPalHandle, uint16_t roomMemberIndex)

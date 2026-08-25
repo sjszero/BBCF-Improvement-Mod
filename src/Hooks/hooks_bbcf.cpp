@@ -5,13 +5,10 @@
 #include "Core/Settings.h"
 #include "Core/utils.h"
 #include "Game/MatchState.h"
-#include "Game/NetworkStallDiagnostics.h"
-#include "Game/SpectatorSyncDiagnostics.h"
 #include "Game/gamestates.h"
 #include "Game/stages.h"
 #include "Hooks/HookManager.h"
 #include "Hooks/RankedAutomationHarness.h"
-#include "Network/RankedListConnectionFilter.h"
 #include "Network/RoomManager.h"
 #include "Overlay/WindowManager.h"
 #include "SteamApiWrapper/steamApiWrappers.h"
@@ -8461,15 +8458,6 @@ void __declspec(naked)GetGameStateVersusScreen()
 {
 	LOG_ASM(2, "GetGameStateVersusScreen\n");
 
-	__asm pushad
-
-	g_interfaces.pPaletteManager->OnMatchEnd(
-		g_interfaces.player1.GetPalHandle(),
-		g_interfaces.player2.GetPalHandle()
-	);
-
-	__asm popad
-
 	__asm
 	{
 		mov dword ptr[eax + 10Ch], 0Eh
@@ -8554,17 +8542,8 @@ EXIT:
 
 int PassKeyboardInputToGame()
 {
-	if (GetForegroundWindow() != g_gameProc.hWndGameWindow)
-	{
-		return 0;
-	}
-
-	// This hook fires on every keystroke from process start, but the ImGui context is not
-	// created until WindowManager::Initialize runs at the title screen. Touching GetIO()
-	// before that asserts on a NULL context since ImGui 1.60 -- pressing a key to skip the
-	// intro videos was enough to take the game down. (Under 1.53 GImGui pointed at a static
-	// default context, so the early call happened to be harmless.)
-	if (IsImGuiContextReady() && ImGui::GetIO().WantCaptureKeyboard)
+	if (GetForegroundWindow() != g_gameProc.hWndGameWindow ||
+		ImGui::GetIO().WantCaptureKeyboard)
 	{
 		return 0;
 	}
@@ -8728,168 +8707,6 @@ void __declspec(naked)MatchIntroStartsPlayingFunc()
 		popad
 		and dword ptr[eax + 2778h], 0FFFFFFFDh
 		jmp[MatchIntroStartsPlayingJmpBackAddr]
-	}
-}
-
-// Entry of the per-room-member async profile-fetch tick (FUN_004A25C0, ecx = row).
-// Runs for all 6 room rows every frame from the pump FUN_0049D440. The thunk
-// snapshots in-flight payloads and drives the D-Code wedge detector/watchdog --
-// see NetworkStallDiagnostics::OnFetchTickEnter and docs/Research/DCodeNetworkStallBug.md.
-DWORD DCodeFetchTickJmpBackAddr = 0;
-static void(__cdecl* const g_pDCodeFetchTickEnterThunk)(void*) = DCodeFetchTickEnterThunk;
-void __declspec(naked)DCodeFetchTickHookFunc()
-{
-	__asm
-	{
-		pushfd
-		pushad
-		push ecx
-		call g_pDCodeFetchTickEnterThunk
-		add esp, 4
-		popad
-		popfd
-		// original 10 bytes replaced by the JMP patch
-		push esi
-		mov esi, ecx
-		push edi
-		mov edi, dword ptr[esi + 68A0h]
-		jmp[DCodeFetchTickJmpBackAddr]
-	}
-}
-
-// Ranked list row-click latch (FUN_004a89d0, VA 0x4A89D0): the confirm state
-// machine's handler that reads perm[screenCtrl+0x1EC] and latches the clicked
-// row into the connect request (listStruct+0x3D8). The game's +0x1EC selection
-// index is tracked separately from the list widget's cursor (widget+0x15D78),
-// and the mod's widget-cursor writes (live-shrink clamp / cursor-follow) made
-// the two drift - the click then resolved a different row than the highlighted
-// one (live-proven 2026-07-19 23:25:07, see RankedListConnectionFilter
-// progress doc). The thunk rewrites +0x1EC from the widget cursor before the
-// game reads it. ecx = screenCtrl ('this') at function entry.
-static void __cdecl RankedRowClickLatchThunk(void* screenCtrl)
-{
-	RankedListConnectionFilter::GetInstance().OnRankedRowClickLatch(screenCtrl);
-}
-
-// Ranked list row-click PUSH site (VA 0x4AEE64, inside the list screen's state
-// machine): `push dword ptr [edi+1ECh]` / call FUN_004A40A0 / mov ecx,eax /
-// call FUN_004A4110 - the request-type-0 latch that live sessions proved is
-// the path real clicks take (every click snapshot shows reqType=0; the type-1
-// FUN_004a89d0 hook below never fired). It pushes the controller's selection
-// index RAW as a LOGICAL row index - no perm[] lookup - which is only correct
-// while the row permutation is identity. Once the mod reorders (perm[slot] !=
-// slot), the click resolves a different row than the highlighted one even
-// when the two cursor copies agree. The thunk returns the correct logical row
-// (perm[widget cursor], vanilla-exact fallback inside) and the hook pushes
-// that instead. edi = screen controller at the patched instruction.
-static int32_t __cdecl RankedRowClickIndexThunk(void* screenCtrl)
-{
-	return RankedListConnectionFilter::GetInstance().ResolveClickedLogicalRow(screenCtrl);
-}
-static int32_t(__cdecl* const g_pRankedRowClickIndexThunk)(void*) = RankedRowClickIndexThunk;
-static DWORD g_rankedRowClickPushValue = 0;
-DWORD RankedRowClickPushJmpBackAddr = 0;
-void __declspec(naked)RankedRowClickPushHookFunc()
-{
-	__asm
-	{
-		pushfd
-		pushad
-		push edi
-		call g_pRankedRowClickIndexThunk
-		add esp, 4
-		mov g_rankedRowClickPushValue, eax
-		popad
-		popfd
-		// replaces the original 6-byte `push dword ptr [edi+1ECh]`
-		push g_rankedRowClickPushValue
-		jmp[RankedRowClickPushJmpBackAddr]
-	}
-}
-static void(__cdecl* const g_pRankedRowClickLatchThunk)(void*) = RankedRowClickLatchThunk;
-DWORD RankedRowClickLatchJmpBackAddr = 0;
-void __declspec(naked)RankedRowClickLatchHookFunc()
-{
-	__asm
-	{
-		pushfd
-		pushad
-		push ecx
-		call g_pRankedRowClickLatchThunk
-		add esp, 4
-		popad
-		popfd
-		// original 5 bytes replaced by the JMP patch
-		push ebp
-		mov ebp, esp
-		push ecx
-		push ebx
-		jmp[RankedRowClickLatchJmpBackAddr]
-	}
-}
-
-// Spectator SyncInput entry (SteamSpectatorBackend::SyncInput, VA 0x77E340). Only ever
-// runs in spectator mode; captures the backend pointer (ecx) that the caller-side gate
-// hook below needs to pump the network drain. Also hosts TEST-ONLY fault injection:
-// while armed, forces SyncInput to report starvation (eax=4) even though the real input
-// is present, so the freeze path can be exercised on demand.
-// See docs/Research/SpectatorDesyncInvestigation.md.
-DWORD SpectatorSyncInputEntryJmpBackAddr = 0;
-void __declspec(naked)SpectatorSyncInputEntryHookFunc()
-{
-	__asm
-	{
-		mov g_spectatorBackendPtrRaw, ecx
-		cmp g_spectatorSyncInjectFramesRemaining, 0
-		je NO_INJECT
-		dec g_spectatorSyncInjectFramesRemaining
-		mov g_spectatorInjectingThisFrame, 1  // flag this frame as injected for the thunk
-		mov eax, 4            // fake starvation (thiscall, 3 stack args -> ret 0Ch)
-		ret 0Ch
-	NO_INJECT:
-		// original 9 bytes replaced by the JMP patch
-		push ebp
-		mov ebp, esp
-		sub esp, 414h
-		jmp[SpectatorSyncInputEntryJmpBackAddr]
-	}
-}
-
-// The fix. SynchronizeInput error/starvation branch (VA 0x4E60F1); the replaced 5 bytes
-// are `call FUN_0055C540` (battle-scene getter), which vanilla feeds into its
-// advance-with-zero-vs-stall gate (0055EDB0). The thunk decides: return 1 to FREEZE
-// (only in the desync-prone advance-with-zero states, within the absorb window) -> jump
-// to the vanilla stall path (0x4E6110), so the fight does not advance and no phantom
-// frame is inserted; return 0 to let vanilla run unchanged (replicate the replaced call
-// + jmp back) -- normal-state stalls and post-absorb-window advance-with-zero (match-end).
-DWORD SpectatorSyncInputErrorJmpBackAddr = 0;       // = found + 5 (VA 0x4E60F6)
-DWORD SpectatorSyncInputErrorStallAddr = 0;         // = jmpback + 0x1A (VA 0x4E6110)
-DWORD SpectatorSyncInputErrorAdvanceAddr = 0;       // = jmpback + 0x0F (VA 0x4E6105)
-DWORD SpectatorSyncInputErrorSceneGetterAddr = 0;   // FUN_0055C540, from replaced rel32
-static DWORD g_spectatorFreezeDecision = 0;
-static int(__cdecl* const g_pSpectatorSyncOnStarvationThunk)() = SpectatorSyncOnStarvationThunk;
-void __declspec(naked)SpectatorSyncInputErrorHookFunc()
-{
-	__asm
-	{
-		pushfd
-		pushad
-		call g_pSpectatorSyncOnStarvationThunk
-		mov g_spectatorFreezeDecision, eax
-		popad
-		popfd
-		cmp g_spectatorFreezeDecision, 1
-		je FREEZE
-		cmp g_spectatorFreezeDecision, 2
-		je FORCE_ADVANCE
-		// vanilla: replicate the replaced `call 0055C540`, then jmp back
-		call[SpectatorSyncInputErrorSceneGetterAddr]
-		jmp[SpectatorSyncInputErrorJmpBackAddr]
-	FREEZE:
-		jmp[SpectatorSyncInputErrorStallAddr]
-	FORCE_ADVANCE:
-		// TEST ONLY: take the advance-with-zero path (phantom frame) to reproduce desync
-		jmp[SpectatorSyncInputErrorAdvanceAddr]
 	}
 }
 
@@ -9109,32 +8926,6 @@ void __declspec(naked)GetFrameCounter()
 		mov eax, [esi]
 		inc dword ptr[esi + 0Ch]
 		jmp[GetFrameCounterJmpBackAddr]
-	}
-}
-
-// Hooks the entry of the game's per-logic-tick Update (Ghidra FUN_0056B1F0, confirmed via
-// docs/Research/PlaybackTimingAddendumReport.txt). This runs strictly earlier in the frame than
-// GetFrameCounter above - specifically before the per-player input consumer (which reads the
-// active training-playback slot) - see UnlimitedPlaybackManager::RunPreTick() for why that
-// ordering matters. Only the first 6 bytes of the function's prologue are overwritten
-// (push ebp; mov ebp,esp; sub esp,0x34 - three complete instructions, no mid-instruction split),
-// which are reconstructed below before jumping back.
-DWORD UnlimitedPlaybackPreTickJmpBackAddr = 0;
-void __declspec(naked) UnlimitedPlaybackPreTickHook()
-{
-	LOG_ASM(7, "UnlimitedPlaybackPreTickHook\n");
-
-	__asm pushad
-	UnlimitedPlaybackManager::Instance().RunPreTick();
-	__asm popad
-
-	_asm
-	{
-		// original code
-		push ebp
-		mov ebp, esp
-		sub esp, 34h
-		jmp[UnlimitedPlaybackPreTickJmpBackAddr]
 	}
 }
 
@@ -9368,61 +9159,6 @@ bool placeHooks_bbcf()
 	MatchIntroStartsPlayingJmpBackAddr = HookManager::SetHook("MatchIntroStartsPlaying", "\x83\xA0\x78\x27\x00\x00\x00\x83\x66\x30",
 		"xxxxxx?xxx", 7, MatchIntroStartsPlayingFunc);
 
-	// FUN_004A25C0 prologue: push esi / mov esi,ecx / push edi / mov edi,[esi+68A0h]
-	// / cmp dword ptr [edi+0CCh],1. The [esi+68A0h] load is unique in the exe.
-	DCodeFetchTickJmpBackAddr = HookManager::SetHook("DCodeFetchTick",
-		"\x56\x8B\xF1\x57\x8B\xBE\xA0\x68\x00\x00\x83\xBF\xCC\x00\x00\x00\x01",
-		"xxxxxxxxxxxxxxxxx", 10, DCodeFetchTickHookFunc);
-
-	// Ranked row-click latch (FUN_004a89d0, VA 0x4A89D0). Hooked by direct
-	// address (RVA 0xA89D0) like the other ranked-flow hooks - the prologue
-	// (push ebp / mov ebp,esp / push ecx / push ebx) is too generic for a
-	// unique signature. Replaces exactly those 5 prologue bytes.
-	RankedRowClickLatchJmpBackAddr = HookManager::SetHook("RankedRowClickLatch",
-		(DWORD)(GetBbcfBaseAdress() + 0xA89D0), 5, RankedRowClickLatchHookFunc);
-	if (RankedRowClickLatchJmpBackAddr == 0)
-	{
-		LOG(1, "[RankedListFilter] RankedRowClickLatch hook FAILED to place\n");
-	}
-
-	// Ranked row-click push site (VA 0x4AEE64, RVA 0xAEE64) - the request-
-	// type-0 latch path real clicks actually take. Replaces exactly the
-	// 6-byte `push dword ptr [edi+1ECh]` (FF B7 EC 01 00 00).
-	RankedRowClickPushJmpBackAddr = HookManager::SetHook("RankedRowClickPush",
-		(DWORD)(GetBbcfBaseAdress() + 0xAEE64), 6, RankedRowClickPushHookFunc);
-	if (RankedRowClickPushJmpBackAddr == 0)
-	{
-		LOG(1, "[RankedListFilter] RankedRowClickPush hook FAILED to place\n");
-	}
-
-	if (Settings::settingsIni.spectatorSyncHooksEnabled)
-	{
-		// Spectator SyncInput prologue (VA 0x77E340): push ebp / mov ebp,esp /
-		// sub esp,414h / mov eax,[security_cookie] / ... / cmp byte ptr [esi+5CC8h],0.
-		// The 0x414 frame plus the +0x5CC8 _synchronizing test is unique in the exe.
-		SpectatorSyncInputEntryJmpBackAddr = HookManager::SetHook("SpectatorSyncInputEntry",
-			"\x55\x8B\xEC\x81\xEC\x14\x04\x00\x00\xA1\x00\x00\x00\x00\x33\xC5\x89\x45\xFC\x53\x8B\x5D\x08\x56\x8B\xF1\x57\x80\xBE\xC8\x5C\x00\x00\x00",
-			"xxxxxxxxxx????xxxxxxxxxxxxxxxxxxxx", 9, SpectatorSyncInputEntryHookFunc);
-
-		// SynchronizeInput error branch (VA 0x4E60F1): call FUN_0055C540 /
-		// lea ecx,[eax+62B7Ch] / call FUN_0055EDB0 / test eax,eax / je +0Bh.
-		// We replace the first call; its rel32 gives us the scene getter's address.
-		SpectatorSyncInputErrorJmpBackAddr = HookManager::SetHook("SpectatorSyncInputError",
-			"\xE8\x00\x00\x00\x00\x8D\x88\x7C\x2B\x06\x00\xE8\x00\x00\x00\x00\x85\xC0\x74\x0B",
-			"x????xxxxxxx????xxxx", 5, SpectatorSyncInputErrorHookFunc);
-		if (SpectatorSyncInputErrorJmpBackAddr)
-		{
-			SpectatorSyncInputErrorStallAddr = SpectatorSyncInputErrorJmpBackAddr + 0x1A;   // VA 0x4E6110
-			SpectatorSyncInputErrorAdvanceAddr = SpectatorSyncInputErrorJmpBackAddr + 0x0F; // VA 0x4E6105
-			SpectatorSyncInputErrorSceneGetterAddr = SpectatorSyncInputErrorJmpBackAddr
-				+ HookManager::GetOriginalBytes("SpectatorSyncInputError", 1, 4);
-		}
-	}
-	else
-	{
-		LOG(1, "SpectatorSync: hooks disabled via SpectatorSyncHooksEnabled=0 (bisection mode)\n");
-	}
-
 	GetStageSelectAddrJmpBackAddr = HookManager::SetHook("GetStageSelectAddr", "\xc7\x81\x54\x0f\x00\x00\x00\x00\x00\x00\x8d\x41\x0c",
 		"xxxxxxxxxxxxx", 10, GetStageSelectAddr);
 
@@ -9453,18 +9189,6 @@ bool placeHooks_bbcf()
 
 	GetFrameCounterJmpBackAddr = HookManager::SetHook("GetFrameCounter", "\x8b\x06\xff\x46\x0c",
 		"xxxxx", 5, GetFrameCounter);
-
-	// Entry of the game's per-logic-tick Update (Ghidra FUN_0056B1F0). Pattern covers 11 whole
-	// instructions (26 bytes, verified unique in the full binary) for reliable matching, but only
-	// the first 6 bytes (3 instructions: push ebp; mov ebp,esp; sub esp,0x34) are overwritten -
-	// see UnlimitedPlaybackPreTickHook above. The "mov eax,[__security_cookie]" instruction's
-	// 4-byte absolute address operand is wildcarded ('?'): it's rebased at load time (this game
-	// has ASLR), so hardcoding Ghidra's static-image-base bytes here made the signature scan fail
-	// at runtime (0 matches) even though it matched Ghidra's own byte dump exactly. Only the CALL's
-	// rel32 displacement is safe to keep fixed - relative displacements are base-independent.
-	UnlimitedPlaybackPreTickJmpBackAddr = HookManager::SetHook("UnlimitedPlaybackPreTick",
-		"\x55\x8b\xec\x83\xec\x34\xa1\xb8\xe0\xa0\x00\x33\xc5\x89\x45\xfc\x53\x56\x57\x8b\xf9\xe8\x36\x13\xff\xff",
-		"xxxxxxx????xxxxxxxxxxxxxxx", 6, UnlimitedPlaybackPreTickHook);
 
 	GetRoomOneJmpBackAddr = HookManager::SetHook("GetRoomOne", "\x0f\xb7\x06\x50\x8b\xcb",
 		"xxxxxx", 6, GetRoomOne);

@@ -16,7 +16,6 @@ private:
 	void DrawImGuiSection();
 	void DrawGameValuesSection();
 	void DrawRoomSection();
-	void DrawSpectatorSyncSection();
 	void DrawSettingsSection();
 	void DrawNotificationSection();
 

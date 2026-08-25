@@ -1,0 +1,145 @@
+name: Build BBCF Improvement Mod
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install ATL and MFC headers
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $installPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -Last 1).Trim()
+          if (-not $installPath) {
+            throw 'Could not locate a Visual Studio installation with MSVC.'
+          }
+
+          $installer = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/setup.exe'
+          $arguments = @(
+            'modify'
+            '--installPath="' + $installPath + '"'
+            '--add', 'Microsoft.VisualStudio.Component.VC.ATL'
+            '--add', 'Microsoft.VisualStudio.Component.VC.ATLMFC'
+            '--quiet'
+            '--norestart'
+          )
+          Write-Host "Running: $installer $($arguments -join ' ')"
+          $process = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru -NoNewWindow
+          if ($process.ExitCode -notin @(0, 3010)) {
+            throw "ATL/MFC installation failed with exit code $($process.ExitCode)"
+          }
+
+          $msvcToolsRoot = Join-Path $installPath 'VC/Tools/MSVC'
+          $headerRoots = Get-ChildItem -Path $msvcToolsRoot -Directory -ErrorAction Stop
+          $atlPairs = @($headerRoots | ForEach-Object {
+            $atlstrPath = Join-Path $_.FullName 'atlmfc/include/atlstr.h'
+            $atltimePath = Join-Path $_.FullName 'atlmfc/include/atltime.h'
+            if ((Test-Path $atlstrPath) -and (Test-Path $atltimePath)) {
+              [PSCustomObject]@{
+                Version = $_.Name
+                Root = $_.FullName
+                AtlStr = Get-Item $atlstrPath
+                AtlTime = Get-Item $atltimePath
+              }
+            }
+          })
+          Write-Host "ATL header version pairs: $($atlPairs.Count)"
+          $atlPairs | ForEach-Object {
+            Write-Host "Version=$($_.Version)"
+            Write-Host "  atlstr.h: $($_.AtlStr.FullName) ($($_.AtlStr.Length) bytes)"
+            Write-Host "  atltime.h: $($_.AtlTime.FullName) ($($_.AtlTime.Length) bytes)"
+          }
+          $atlPair = $atlPairs | Select-Object -First 1
+          if (-not $atlPair) {
+            throw "No MSVC version contains both atlstr.h and atltime.h under $msvcToolsRoot"
+          }
+          $atlstr = $atlPair.AtlStr.FullName
+          $atltime = $atlPair.AtlTime.FullName
+          Write-Host "ATL headers verified: $atlstr, $atltime"
+          $msvcRoot = $atlPair.Root
+          $msvcVersion = Split-Path $msvcRoot -Leaf
+          $atlInclude = Join-Path $msvcRoot 'atlmfc/include'
+          Write-Host "MSVC version with ATL: $msvcVersion"
+          Write-Host "ATL include path for MSBuild: $atlInclude"
+          "ATL_INCLUDE=$atlInclude" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+          "BBCF_VCTOOLS_VERSION=$msvcVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Build clean v7.2 ReleaseDeploy Win32
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+          $installPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -Last 1).Trim()
+          if (-not $installPath) {
+            throw 'Could not locate Visual Studio with MSVC.'
+          }
+          Write-Host "Using Visual Studio: $installPath"
+          msbuild BBCF_IM.sln `
+            /m `
+            /v:minimal `
+            /p:Configuration=ReleaseDeploy `
+            /p:Platform=Win32 `
+            /p:PlatformToolset=v143 `
+            /p:BuildProjectReferences=true `
+            /p:DeployOnBuild=false `
+            /p:BbcfDeployEnabled=false `
+            /p:BbcfLaunchAfterDeploy=false
+
+      - name: Verify clean baseline output
+        run: |
+          $dll = Get-Item 'bin/Release/dinput8.dll' -ErrorAction Stop
+          if ($dll.Length -le 0) {
+            throw "Built DLL is empty: $($dll.FullName)"
+          }
+          Write-Host "Clean v7.2 DLL: $($dll.FullName)"
+          Write-Host "Size: $($dll.Length) bytes"
+          $sha256 = [System.Security.Cryptography.SHA256]::Create()
+          try {
+            $hashBytes = $sha256.ComputeHash([System.IO.File]::ReadAllBytes($dll.FullName))
+            $hash = ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
+          }
+          finally {
+            $sha256.Dispose()
+          }
+          Write-Host "SHA-256: $hash"
+
+      - name: Collect clean baseline artifact
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Copy-Item bin/Release/dinput8.dll artifact/dinput8.dll
+          $sha256 = [System.Security.Cryptography.SHA256]::Create()
+          try {
+            $hashBytes = $sha256.ComputeHash([System.IO.File]::ReadAllBytes('artifact/dinput8.dll'))
+            $hash = ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
+          }
+          finally {
+            $sha256.Dispose()
+          }
+          "$hash  dinput8.dll" | Set-Content artifact/SHA256SUMS.txt
+          Get-ChildItem artifact | Select-Object Name, Length, LastWriteTime
+
+      - name: Upload clean baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bbcf-im-v7.2-clean-win32-${{ github.sha }}
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 14

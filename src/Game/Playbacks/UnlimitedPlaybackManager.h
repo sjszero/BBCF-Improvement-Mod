@@ -75,11 +75,6 @@ public:
 
     void InitializeIfNeeded();
     void Tick();
-    // Called from a hook point that runs BEFORE the game reads this tick's active-slot playback
-    // input (earlier in the frame than Tick()/GetFrameCounter). Only handles the parts of
-    // starting playback that have no real-time game-state dependency (i.e. "Play Now"), so that
-    // the recorded input takes effect on the same tick as the request rather than one tick late.
-    void RunPreTick();
     void OnMatchInit();
     void ForceResetTriggers(const char* toastText = nullptr);
     void OnMatchEnd();
@@ -103,11 +98,7 @@ public:
     void SetLoopRestartMode(int mode);
     bool IsLoopActive() const;
     bool GetLoopSetupCountdown(float* outRemainingSeconds, float* outTotalSeconds) const;
-    bool IsLoopPositionSetupActive() const;
     bool HasLoopCustomSnapshot() const;
-    // True when the stored snapshot was captured for this reset mode (auto-captured for
-    // Left/Middle/Right, user-captured for Custom), so starting the loop can skip setup.
-    bool IsLoopSnapshotReadyForMode(int mode) const;
     bool CaptureLoopCustomSnapshot();
     bool LoadLoopCustomSnapshot();
     void ClearLoopCustomSnapshot();
@@ -128,11 +119,8 @@ public:
     bool IsReplayRecordingAsP1() const;
     int GetReplayRecordingStartFrame() const;
     bool RemoveEntryByIndex(size_t idx);
-    int RemoveEntriesByIndices(const std::vector<size_t>& indices);
     bool MoveEntry(size_t fromIdx, size_t toIdx);
-    bool MoveEntries(const std::vector<size_t>& fromIndicesSorted, size_t insertionIndex, size_t* outInsertedAt = nullptr);
     void SetAllEntriesEnabled(bool enabled);
-    void SetEntriesEnabled(const std::vector<size_t>& indices, bool enabled);
     bool RenameEntry(size_t idx, const std::string& newName);
 
     bool LoadEntryIntoSlot(size_t idx, int slot);
@@ -141,13 +129,6 @@ public:
     bool WriteEntryPlayback(size_t idx, bool facingLeft, const std::vector<char>& frames);
     bool SaveEntryToFile(size_t idx, const std::string& outputPath);
     bool PlayEntryNow(size_t idx);
-
-    // While an entry is played back, the runtime borrows one CF slot and owes the user a
-    // restore of that slot's original contents. Anything else that writes to a CF slot has
-    // to know about it, otherwise the pending restore silently reverts the write.
-    int GetBorrowedCfSlot() const; // 0 when no slot is currently borrowed
-    bool AbsorbExternalSlotWrite(int slot, const std::vector<char>& trimmedFrames, bool facingLeft);
-    bool ReadBorrowedCfSlot(int slot, std::vector<char>* outTrimmedFrames, char* outFacing) const;
 
     void ClearAll();
 
@@ -178,9 +159,6 @@ private:
     std::string SanitizeFileName(const std::string& input) const;
     std::string BuildUniqueRelativePath(const std::string& preferredName) const;
     std::string EnsureEntryLibraryRelativePath(size_t idx);
-
-    bool AbsorbExternalSlotWriteRaw(int slot, const std::vector<char>& rawFrames, bool facingLeft);
-    bool TryReadBorrowedSlot(int slot, std::vector<char>* outRawFrames, bool* outFacingLeft) const;
 
     bool ReadPlaybackFile(const std::string& fullPath, CachedPlayback* out, bool forceLoadIncompatible = false);
     bool WritePlaybackFile(const std::string& fullPath, bool facingLeft, const std::vector<char>& frames);
@@ -216,13 +194,8 @@ private:
     void TryRestoreRuntimeSlotAfterPlayback();
     void ResetRuntimePlaybackState(bool discardBackupOnly);
     void StartRuntimePlayback(const std::vector<char>& frames, int facingToLoad);
-    void ExecutePendingPlayNow();
-    void LogSlot4PlaybackDiagnostics();
     bool EnsureLoopSnapshotApparatus(bool preserveCustomSnapshot = false);
-    bool CaptureLoopSnapshotInternal();
     bool RestoreLoopCustomSnapshot(bool showToast);
-    void BeginLoopPositionSetup(int currentFrame);
-    void ProcessLoopPositionSetup(int currentFrame);
     bool ApplyLoopRestart();
     void StartNativeTrainingResetCombo(LoopResetMode mode);
     void CaptureNativeTrainingResetInputSnapshot(LoopResetMode mode);
@@ -260,10 +233,6 @@ private:
     int m_lastObservedFrame = -1;
     bool m_runtimeSlotBackupValid = false;
     bool m_runtimeSlotRestorePending = false;
-    bool m_pendingPlayNowRequested = false;
-    size_t m_pendingPlayNowIndex = 0;
-    bool m_diagSlot4WasActive = false;
-    int m_diagSlot4LastLoggedPosition = -2;
     bool m_runtimeSlotBackupFacingLeft = false;
     std::vector<char> m_runtimeSlotBackupFrames;
     int m_runtimeSlotNumber = 1;
@@ -286,10 +255,6 @@ private:
         LoopPhase_Setup,
         LoopPhase_Playing,
         LoopPhase_Ending,
-        // One-time takeover when reset mode is Left/Middle/Right and no matching snapshot
-        // exists yet: force the native training reset to the target position, wait for it to
-        // settle, auto-capture a snapshot, then the loop reuses that snapshot every cycle.
-        LoopPhase_PositionSetup,
     };
     LoopPhase m_loopPhase = LoopPhase_Idle;
     int m_loopPhaseStartFrame = -1;
@@ -298,20 +263,12 @@ private:
     int m_loopPlaybackInputEndedFrame = -1;
     int m_loopPlaybackIdleSinceFrame = -1;
     bool m_loopNativeResetPulseActive = false;
-    // Logic ticks left before the forced reset combo is released. Kept as short as possible
-    // (and cut to 0 as soon as the reset is observed) so the held direction cannot walk the
-    // character away from the freshly reset position before the snapshot is taken.
-    int m_loopNativeResetHoldTicksLeft = 0;
+    unsigned long long m_loopNativeResetReleaseAtMs = 0;
     std::array<WORD, 3> m_loopNativeResetKeys = {};
     std::vector<WORD> m_loopNativeResetRestoreKeys;
     std::vector<char> m_loopCustomSnapshotBytes;
     int m_loopCustomSnapshotSize = 0;
     int m_loopCustomSnapshotSlotIndex = -1;
-    // Which LoopResetMode the stored snapshot was captured for (-1 = none).
-    int m_loopSnapshotSourceMode = -1;
-    // Countdown (in observed logic ticks) between releasing the forced reset combo and
-    // auto-capturing the snapshot; frame-counter rollback safe. -1 = not waiting.
-    int m_loopPositionSetupSettleTicksLeft = -1;
     SnapshotApparatus* m_loopSnapshotApparatus = nullptr;
 
     PlaybackManager m_runtimePlaybackManager;

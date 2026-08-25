@@ -64,7 +64,6 @@ Player 2,Player 2,Player 2
 Player 1:,Player 1:,Player 1:
 Player 2:,Player 2:,Player 2:
 Copy to clipboard,Copy to clipboard,Copiar al portapapeles
-Save as...,Save as...,Guardar como...
 Search,Search,Buscar
 System_log_copied,"[system] Log has been copied to clipboard
 ","[system] Log fue copiado al clipboard
@@ -350,47 +349,6 @@ Show square color progress,Show square color progress,Mostrar progreso de color 
 Shows a movable network square color progress window while inside network mode.,Shows a movable network square color progress window while inside network mode.,Muestra una ventana movible de progreso de color de square dentro del modo network.
 Show ranked prediction,Show ranked prediction,Mostrar predicción de rango
 Shows win/loss ranked outcome predictions during ranked match confirmation and ranked rematch screens when opponent rank data is available.,Shows win/loss ranked outcome predictions during ranked match confirmation and ranked rematch screens when opponent rank data is available.,Muestra predicciones de victoria y derrota durante la confirmación y la revancha clasificatoria cuando el rango del rival está disponible.
-Hide unreachable players from ranked list,Hide unreachable players from ranked list,Ocultar jugadores inalcanzables de la lista clasificatoria
-"Checks in the background whether listed players are actually reachable and hides confirmed-unreachable ones from the ranked search list. Everyone (hidden players included) is re-checked every 15 seconds, so players whose connection recovers reappear on their own. Click the hidden counter below to see and restore hidden players manually.","Checks in the background whether listed players are actually reachable and hides confirmed-unreachable ones from the ranked search list. Everyone (hidden players included) is re-checked every 15 seconds, so players whose connection recovers reappear on their own. Click the hidden counter below to see and restore hidden players manually.","Comprueba en segundo plano si los jugadores de la lista son realmente alcanzables y oculta de la lista clasificatoria a los confirmados como inalcanzables. Todos (incluidos los ocultos) se vuelven a comprobar cada 15 segundos, así que los jugadores cuya conexión se recupera reaparecen solos. Haz clic en el contador de ocultos abajo para ver y restaurar jugadores ocultos manualmente."
-"Last search: %d shown,","Last search: %d shown,","Última búsqueda: %d visibles,"
-%d hidden,%d hidden,%d ocultos
-Hidden players,Hidden players,Jugadores ocultos
-Show hidden players window,Show hidden players window,Mostrar ventana de jugadores ocultos
-"Automatically opens a window listing players hidden by the connection filter while the ranked list is open. Closing that window is the same as unchecking this.","Automatically opens a window listing players hidden by the connection filter while the ranked list is open. Closing that window is the same as unchecking this.","Abre automáticamente una ventana con los jugadores ocultos por el filtro de conexión mientras la lista clasificatoria está abierta. Cerrar esa ventana equivale a desmarcar esta opción."
-No players are currently hidden.,No players are currently hidden.,No hay jugadores ocultos actualmente.
-below network filter,below network filter,por debajo del filtro de red
-network requirements not met,network requirements not met,requisitos de red no cumplidos
-Network Filter,Network Filter,Filtro de red
-All,All,Todos
-1 and above,1 and above,1 o más
-2 and above,2 and above,2 o más
-3 and above,3 and above,3 o más
-4 only,4 only,Solo 4
-"Hides players whose Delay rating (0-4) is below the selected level. Players whose rating hasn't been measured yet stay visible until it resolves; rows are hidden and restored live as ratings change.","Hides players whose Delay rating (0-4) is below the selected level. Players whose rating hasn't been measured yet stay visible until it resolves; rows are hidden and restored live as ratings change.","Oculta a los jugadores cuya calificación de Delay (0-4) está por debajo del nivel seleccionado. Los jugadores cuya calificación aún no se ha medido permanecen visibles hasta que se resuelve; las filas se ocultan y restauran en vivo según cambian las calificaciones."
-Hide rooms with unmet network requirements,Hide rooms with unmet network requirements,Ocultar salas con requisitos de red no cumplidos
-"Some rooms require a minimum connection quality and show ""The room's connectivity requirements are not met"" when you try to enter. This hides those rooms once your Delay rating to them is measured, so everything left in the list is actually joinable.","Some rooms require a minimum connection quality and show ""The room's connectivity requirements are not met"" when you try to enter. This hides those rooms once your Delay rating to them is measured, so everything left in the list is actually joinable.","Algunas salas exigen una calidad de conexión mínima y muestran ""No se cumplen los requisitos de conectividad de la sala"" al intentar entrar. Esto oculta esas salas una vez medida tu calificación de Delay hacia ellas, de modo que todo lo que queda en la lista es realmente accesible."
-Ranked List Config,Ranked List Config,Configuración de lista clasificatoria
-Show ranked list config window,Show ranked list config window,Mostrar ventana de configuración de lista clasificatoria
-"Automatically opens a window while the ranked search list is on screen, holding the connection filter toggle, list sorting, and the list of hidden players. Closing that window is the same as unchecking this.","Automatically opens a window while the ranked search list is on screen, holding the connection filter toggle, list sorting, and the list of hidden players. Closing that window is the same as unchecking this.","Abre automáticamente una ventana mientras la lista de búsqueda clasificatoria está en pantalla, con el interruptor del filtro de conexión, el orden de la lista y la lista de jugadores ocultos. Cerrar esa ventana equivale a desmarcar esta opción."
-Enable the filter to sort the list and review hidden players.,Enable the filter to sort the list and review hidden players.,Activa el filtro para ordenar la lista y revisar los jugadores ocultos.
-Sort ranked list,Sort ranked list,Ordenar lista clasificatoria
-"Reorders the ranked search list itself. Connection order matches the list's own Delay rating (0-4) once the game has measured it for a player, updating as it changes; falls back to the mod's own reachability check timing as a rough estimate until then. Level order uses each player's advertised rank.","Reorders the ranked search list itself. Connection order matches the list's own Delay rating (0-4) once the game has measured it for a player, updating as it changes; falls back to the mod's own reachability check timing as a rough estimate until then. Level order uses each player's advertised rank.","Reordena la propia lista de búsqueda clasificatoria. El orden por conexión coincide con la propia calificación de Delay (0-4) de la lista una vez que el juego la ha medido para un jugador, actualizándose si cambia; si aún no se ha medido, usa como estimación aproximada el tiempo de comprobación de alcanzabilidad del propio mod. El orden por nivel usa el rango anunciado de cada jugador."
-Best to Worst Connection,Best to Worst Connection,Mejor a peor conexión
-Worst to Best Connection,Worst to Best Connection,Peor a mejor conexión
-Closest to Furthest from my Level,Closest to Furthest from my Level,Más cercano a más lejano de mi nivel
-Furthest to Closest from my Level,Furthest to Closest from my Level,Más lejano a más cercano de mi nivel
-Highest to Lowest Level,Highest to Lowest Level,Nivel más alto a más bajo
-Lowest to Highest Level,Lowest to Highest Level,Nivel más bajo a más alto
-Names in A-Z Order,Names in A-Z Order,Nombres en orden A-Z
-Names in Z-A Order,Names in Z-A Order,Nombres en orden Z-A
-Restore,Restore,Restaurar
-Restore all,Restore all,Restaurar todos
-blocked (repeated failures),blocked (repeated failures),bloqueado (fallos repetidos)
-connection failed,connection failed,conexión fallida
-unreachable,unreachable,inalcanzable
-room closed,room closed,sala cerrada
-room full,room full,sala llena
-room broken (host stuck),room broken (host stuck),sala rota (host trabado)
 Ranked ladder,Ranked ladder,Escalera clasificatoria
 Ranked ladder###RankedLadder,Ranked ladder###RankedLadder,Escalera clasificatoria###RankedLadder
 "Opens the ranked ladder window, including known LP thresholds and population estimates.","Opens the ranked ladder window, including known LP thresholds and population estimates.",Abre la ventana de escalera clasificatoria con umbrales de LP conocidos y estimaciones de población.
@@ -650,7 +608,6 @@ Reset the current library and clear all loaded entries?,Reset the current librar
 Reset,Reset,Restablecer
 Delete Entry?,Delete Entry?,¿Eliminar entrada?
 Delete this playback entry from the library?,Delete this playback entry from the library?,¿Eliminar esta entrada de playback de la biblioteca?
-Delete these %d playback entries from the library?,Delete these %d playback entries from the library?,¿Eliminar estas %d entradas de playback de la biblioteca?
 Capture Slot,Capture Slot,Ranura de captura
 Edit Library Entry,Edit Library Entry,Editar entrada de biblioteca
 Weight,Weight,Peso
@@ -700,7 +657,6 @@ Replay recording cancelled (too short).,Replay recording cancelled (too short).,
 Replay recording cancelled (failed reading replay frames).,Replay recording cancelled (failed reading replay frames).,Grabación cancelada (falló la lectura de frames).
 Replay recording saved to library.,Replay recording saved to library.,Grabación de replay guardada en la biblioteca.
 Entry removed.,Entry removed.,Entrada eliminada.
-%d entries removed.,%d entries removed.,%d entradas eliminadas.
 Entry renamed.,Entry renamed.,Entrada renombrada.
 Sending to a CF slot works only during a training match.,Sending to a CF slot works only during a training match.,Enviar a una ranura CF solo funciona en Training.
 Failed loading entry.,Failed loading entry.,Error al cargar la entrada.
@@ -732,11 +688,9 @@ Triggered [%s]: %s%s,Triggered [%s]: %s%s,Activado [%s]: %s%s
 Slot %d,Slot %d,Ranura %d
 Replay %s,Replay %s,Replay %s
 Slot moved.,Slot moved.,Ranura movida.
-Slots moved.,Slots moved.,Ranuras movidas.
 All slots enabled.,All slots enabled.,Todas las ranuras activadas.
 All slots disabled.,All slots disabled.,Todas las ranuras desactivadas.
 Dragged slot: %s,Dragged slot: %s,Ranura arrastrada: %s
-Dragged %d slots,Dragged %d slots,%d ranuras arrastradas
 Current Slot - %s,Current Slot - %s,Ranura actual - %s
 Slot list,Slot list,Lista de ranuras
 Move up,Move up,Subir
@@ -782,136 +736,3 @@ Later,Later,Más tarde
 Skip this version,Skip this version,Omitir esta versión
 Open release page,Open release page,Abrir página de la versión
 Update to %s,Update to %s,Actualizar a %s
-Share_your_custom_palettes,Share your custom palettes?,¿Compartir tus paletas personalizadas?
-Palette_share_popup_description,"When you play online, players who also use the Improvement Mod can already SEE the custom palette you're using.
-
-If you allow sharing, they'll also get a button to SAVE your palette and use it themselves.
-If you say no, they can look, but they can't keep it.
-
-You can change this anytime in the Palettes window.","Cuando juegas en línea, los jugadores que también usan el Improvement Mod ya pueden VER la paleta personalizada que estás usando.
-
-Si permites compartirla, también tendrán un botón para GUARDAR tu paleta y usarla ellos mismos.
-Si dices que no, podrán verla, pero no quedársela.
-
-Puedes cambiar esto en cualquier momento en la ventana de Paletas."
-Yes_share_them,"Yes, share them","Sí, compartirlas"
-No_dont_share,"No, don't share",No compartir
-Download_palette,Download palette,Descargar paleta
-Palette_download_denied_tooltip,This player hasn't allowed their palettes to be downloaded.,Este jugador no ha permitido que se descarguen sus paletas.
-Palette_download_unsupported_tooltip,This player's mod version doesn't support palette downloads.,La versión del mod de este jugador no permite descargar paletas.
-Palettes,Palettes,Paletas
-Palettes_not_loaded,Palettes are not loaded yet.,Las paletas aún no se han cargado.
-Palette assignments,Palette assignments,Asignación de paletas
-Palette_assignments_hint,Picking that color in-game loads the assigned palette automatically.,Elegir ese color dentro del juego carga la paleta asignada automáticamente.
-Palettes_search_hint,Search by palette or character name,Buscar por nombre de paleta o personaje
-Import_palette_button,Import palette...,Importar paleta...
-Palette_import_help,Copies a .cfpl or legacy .hpl palette file into the matching character's folder under BBCF_IM\Palettes and loads it immediately.,Copia un archivo de paleta .cfpl o .hpl (formato antiguo) a la carpeta del personaje correspondiente en BBCF_IM\Palettes y la carga inmediatamente.
-Palettes_none_found,No custom palettes were found.,No se encontraron paletas personalizadas.
-Palettes_none_found_help,"Use ""Import palette..."" above, or place palette files in BBCF_IM\Palettes\<Character>\ next to BBCF.exe and use ""Reload custom palettes"" in the Custom palettes section, then reopen this window.","Usa ""Importar paleta..."" arriba, o coloca archivos de paleta en BBCF_IM\Palettes\<Personaje>\ junto a BBCF.exe y usa ""Actualizar paletas personalizadas"" en la sección de Paletas personalizadas; luego vuelve a abrir esta ventana."
-Palette_allow_downloads,Allow opponents to download your palettes,Permitir que los oponentes descarguen tus paletas
-Palette_allow_downloads_help,Allows opponents to save your visible custom palette from the match UI. Applied when you hit Save.,Permite que los oponentes guarden tu paleta personalizada visible desde la interfaz de la partida. Se aplica al pulsar Guardar.
-Palette_group_header_single,"%s  (1 palette, %d assigned)","%s  (1 paleta, %d asignadas)"
-Palette_group_header_plural,"%s  (%d palettes, %d assigned)","%s  (%d paletas, %d asignadas)"
-Color %d,Color %d,Color %d
-Not assigned,Not assigned,Sin asignar
-Color_used_by,Color %d  (used by %s),Color %d  (usado por %s)
-Export,Export,Exportar
-Palette_export_tooltip,Save a copy of this palette as a .cfpl file anywhere you like.,Guarda una copia de esta paleta como archivo .cfpl donde quieras.
-Palette_delete_tooltip,Delete this palette's file from disk (asks for confirmation).,Elimina el archivo de esta paleta del disco (pide confirmación).
-Delete palette,Delete palette,Eliminar paleta
-Palette_delete_confirm,"Delete ""%s"" (%s)?","¿Eliminar ""%s"" (%s)?"
-Palette_delete_details,This removes the palette file (and any effect/bloom companion files) from BBCF_IM\Palettes on disk. This cannot be undone.,Elimina el archivo de la paleta (y sus archivos de efecto/bloom asociados) de BBCF_IM\Palettes en el disco. Esto no se puede deshacer.
-Import_palette_title,Import palette,Importar paleta
-Palette_import_legacy_prompt,"""%s"" is a legacy palette file that doesn't say which character it belongs to.","""%s"" es un archivo de paleta en formato antiguo que no indica a qué personaje pertenece."
-Import it for:,Import it for:,Importar para:
-Import,Import,Importar
-Palette_manual_entry,"Color %d keeps its manual palettes.ini entry: ""%s""","El Color %d mantiene su entrada manual de palettes.ini: ""%s"""
-Palette_random_label,Random,Aleatoria
-Palette_random_exclude_label,Random (exclude default),Aleatoria (sin la predeterminada)
-Palette_random_tooltip,"Assign this to a color to get a random custom palette (the default look included) every time you pick that color in-game. Saved to palettes.ini as ""Random"".","Asígnalo a un color para obtener una paleta personalizada al azar (incluida la apariencia predeterminada) cada vez que elijas ese color dentro del juego. Se guarda en palettes.ini como ""Random""."
-Palette_random_exclude_tooltip,"Same as Random, but the character's default look is never picked.","Igual que Aleatoria, pero nunca se elige la apariencia predeterminada del personaje."
-Always swap coordinates help,"When enabled, automatically swaps P1 and P2 positions and facing every round (at frame 5). Holding Up while resetting the lab (even with this menu closed) toggles this on/off, so you can quickly flip into P2-side positioning and back.","Cuando está activado, intercambia automáticamente las posiciones y direcciones de P1 y P2 cada round (en el frame 5). Mantener Arriba mientras reinicias el entrenamiento (incluso con este menú cerrado) activa/desactiva esta opción, para poder colocarte del lado de P2 y volver rápidamente."
-Player_money_tooltip,Directly edits the player's in-game money.,Edita directamente el dinero del jugador en el juego.
-Debug_window_tooltip,Opens the debug window.,Abre la ventana de depuración.
-Log_window_tooltip,Opens the mod's log window.,Abre la ventana de registro (log) del mod.
-States_window_tooltip,"Opens the States Library window (frame data, playback, save states, replay theater, room settings).","Abre la ventana de la Biblioteca de Estados (datos de frames, grabaciones, guardados de estado, teatro de repeticiones, ajustes de sala)."
-Avatar_icon_tooltip,Sets your online lobby avatar icon.,Establece el ícono de tu avatar en el lobby en línea.
-Avatar_color_tooltip,Sets your avatar's background color.,Establece el color de fondo de tu avatar.
-Avatar_accessory1_tooltip,Sets your avatar's first accessory slot.,Establece el primer accesorio de tu avatar.
-Avatar_accessory2_tooltip,Sets your avatar's second accessory slot.,Establece el segundo accesorio de tu avatar.
-Enable_framedata_tooltip,Opens a HUD window showing real-time frame advantage.,Abre una ventana HUD que muestra la ventaja de frames en tiempo real.
-Advantage_stagger_hit_tooltip,Also counts stagger/ukemi hit states in the frame advantage calculation.,También cuenta los estados de tambaleo/ukemi al golpear en el cálculo de la ventaja de frames.
-Palette_editor_tooltip,Opens the palette editor to customize character colors.,Abre el editor de paletas para personalizar los colores del personaje.
-Enable_hitbox_overlay_tooltip,Draws hitboxes/hurtboxes over the characters.,Dibuja las cajas de golpe/impacto sobre los personajes.
-Draw_hitbox_hurtbox_tooltip,"Toggles drawing hit/hurt boxes specifically (vs just the overlay window).","Activa o desactiva el dibujo de las cajas de golpe/impacto específicamente (en vez de solo la ventana de superposición)."
-Freeze_frame_tooltip,Pauses the game's frame progression. Also bound to a hotkey.,Pausa el avance de frames del juego. También está asignado a una tecla rápida.
-Reset_frame_counter_tooltip,Resets the frame counter to 0.,Reinicia el contador de frames a 0.
-Step_frames_tooltip,"While frame-frozen, advances the game by the configured number of frames.","Mientras los frames están congelados, avanza el juego la cantidad de frames configurada."
-Step_frames_count_tooltip,"Number of frames ""Step Frames"" advances at a time.","Cantidad de frames que avanza ""Step Frames"" cada vez."
-Hide_HUD_tooltip,Hides the in-game HUD.,Oculta el HUD dentro del juego.
-Releases_checker_tooltip,Opens the release/update checker window.,Abre la ventana de verificación de actualizaciones/lanzamientos.
-Swap_coordinates_tooltip,"Immediately swaps P1 and P2 positions and facing (training mode only).","Intercambia inmediatamente las posiciones y direcciones de P1 y P2 (solo en modo entrenamiento)."
-Enable_wakeup_delay_override_tooltip,Lets you override P2's wakeup timing/type below.,Permite anular el tiempo/tipo de recuperación (wakeup) de P2 abajo.
-Force_load_p2_script_tooltip,"Re-parses P2's state script data from memory, refreshing the states list.","Vuelve a analizar los datos del script de estados de P2 desde la memoria, actualizando la lista de estados."
-Naoto_EN_specials_tooltip,Force-enables Naoto's EN (Drive) specials on P2.,Fuerza la activación de los especiales EN (Drive) de Naoto en P2.
-Burst_on_hit_tooltip,"Auto-forces P2 into Burst (or Air Burst) a set number of frames after being hit, subject to a cooldown.","Fuerza automáticamente a P2 a hacer Burst (o Air Burst) una cantidad determinada de frames después de recibir un golpe, sujeto a un enfriamiento."
-Burst_onhit_delay_tooltip,Frame delay before the forced burst triggers after a hit.,Retraso en frames antes de que se active el burst forzado tras un golpe.
-Burst_onhit_cooldown_tooltip,Minimum frame cooldown between forced auto-bursts.,Enfriamiento mínimo en frames entre bursts forzados automáticos.
-Add_delays_to_actions_tooltip,Enables the Wakeup/Gap/Tech delay fields below.,Habilita los campos de retraso de Wakeup/Gap/Tech de abajo.
-State_wakeup_delay_tooltip,Frame delay before the registered wakeup action executes.,Retraso en frames antes de que se ejecute la acción de wakeup registrada.
-State_gap_delay_tooltip,Frame delay before the registered gap action triggers on block.,Retraso en frames antes de que se active la acción de gap registrada al bloquear.
-State_throwtech_delay_tooltip,Frame delay before the registered tech action triggers after a throw tech.,Retraso en frames antes de que se active la acción de tech registrada tras escapar de un agarre.
-Set_onhit_action_tooltip,Registers the selected state as P2's forced action 1 frame after being hit.,Registra el estado seleccionado como la acción forzada de P2 1 frame después de recibir un golpe.
-Set_wakeup_action_tooltip,Registers the selected state as P2's forced wakeup action.,Registra el estado seleccionado como la acción de wakeup forzada de P2.
-Set_gap_action_tooltip,Registers the selected state as P2's forced action the instant blockstun ends.,Registra el estado seleccionado como la acción forzada de P2 en el instante en que termina el blockstun.
-Set_tech_action_tooltip,Registers the selected state as P2's forced action after a successful throw tech.,Registra el estado seleccionado como la acción forzada de P2 tras escapar exitosamente de un agarre.
-Use_state_tooltip,Immediately forces P2 into the currently selected state.,Fuerza inmediatamente a P2 al estado actualmente seleccionado.
-Reset_states_tooltip,"Reverts any patched state scripts and clears all gap/wakeup/onhit/tech registers.","Revierte cualquier script de estado modificado y borra todos los registros de gap/wakeup/onhit/tech."
-Add_wakeup_action_tooltip,Adds the selected state to the wakeup action's random pool.,Agrega el estado seleccionado al grupo aleatorio de la acción de wakeup.
-Add_gap_action_tooltip,Adds the selected state to the gap action's random pool.,Agrega el estado seleccionado al grupo aleatorio de la acción de gap.
-Save_playback_tooltip,Saves the current recorded playback to the file path below.,Guarda la grabación actual en la ruta de archivo de abajo.
-Load_playback_tooltip,Loads a .playback file from the path below into this slot.,Carga un archivo .playback desde la ruta de abajo en esta ranura.
-Trim_playback_tooltip,Trims empty leading/trailing input frames from the recording.,Recorta los frames de entrada vacíos al inicio/final de la grabación.
-Playback_file_path_tooltip,Path used by Save/Load/Trim for this slot.,Ruta usada por Guardar/Cargar/Recortar para esta ranura.
-Playback_set_gap_tooltip,Registers this playback slot as the gap action.,Registra esta ranura de grabación como la acción de gap.
-Playback_set_wakeup_tooltip,Registers this playback slot as the wakeup action.,Registra esta ranura de grabación como la acción de wakeup.
-Playback_set_onblock_tooltip,Registers this playback slot as the on-block action.,Registra esta ranura de grabación como la acción al bloquear.
-Playback_set_onhit_tooltip,Registers this playback slot as the (experimental) on-hit action.,Registra esta ranura de grabación como la acción (experimental) al golpear.
-Playback_set_tech_tooltip,Registers this playback slot as the throw-tech action.,Registra esta ranura de grabación como la acción de tech de agarre.
-Playback_reset_tooltip,Clears this slot's gap/wakeup/onblock/onhit/tech role assignments.,Borra las asignaciones de rol gap/wakeup/onblock/onhit/tech de esta ranura.
-Playback_buffer_frames_tooltip,"Input-buffer window in frames for this slot (currently only affects wakeup actions).","Ventana de buffer de entradas en frames para esta ranura (actualmente solo afecta las acciones de wakeup)."
-Open_playback_editor_tooltip,Opens the frame-by-frame playback editor.,Abre el editor de grabaciones cuadro por cuadro.
-Gap_random_slots_tooltip,"Picks a random slot (from the ones checked below) as the gap action each time.","Elige una ranura aleatoria (entre las marcadas abajo) como la acción de gap cada vez."
-Gap_random_slot_include_tooltip,Includes this slot in the random gap-action pool.,Incluye esta ranura en el grupo aleatorio de la acción de gap.
-Wakeup_random_slots_tooltip,"Picks a random slot (from the ones checked below) as the wakeup action each time.","Elige una ranura aleatoria (entre las marcadas abajo) como la acción de wakeup cada vez."
-Wakeup_random_slot_include_tooltip,Includes this slot in the random wakeup-action pool.,Incluye esta ranura en el grupo aleatorio de la acción de wakeup.
-Save_snapshot_tooltip,"Saves a full game-state snapshot (positions, health, meter, etc).","Guarda una instantánea completa del estado del juego (posiciones, vida, meter, etc)."
-Load_snapshot_tooltip,Restores the previously saved snapshot.,Restaura la instantánea guardada previamente.
-Auto_archive_replays_tooltip,Automatically archives replays after they're saved.,Archiva automáticamente las repeticiones después de guardarse.
-Recent_replays_tooltip,Shows the game's own recent replay list.,Muestra la lista de repeticiones recientes propia del juego.
-Repair_replay_list_tooltip,Repairs/rebuilds the default replay list if it's corrupted.,Repara/reconstruye la lista de repeticiones predeterminada si está corrupta.
-Replay_archive_tooltip,Browses your local archived replay folder.,Explora tu carpeta local de repeticiones archivadas.
-Replay_db_tooltip,Searches the online replay database.,Busca en la base de datos de repeticiones en línea.
-Replay_list_page_tooltip,Page number for browsing results.,Número de página para explorar resultados.
-Replay_db_character_filter_tooltip,Filters database search results by character.,Filtra los resultados de la búsqueda en la base de datos por personaje.
-Replay_db_player_filter_tooltip,Filters database search results by player name.,Filtra los resultados de la búsqueda en la base de datos por nombre de jugador.
-Replay_db_search_tooltip,Runs the database search with the filters above.,Ejecuta la búsqueda en la base de datos con los filtros de arriba.
-Replay_list_prev_tooltip,Selects the previous replay in the list.,Selecciona la repetición anterior de la lista.
-Replay_list_next_tooltip,Selects the next replay in the list.,Selecciona la siguiente repetición de la lista.
-Replay_list_load_tooltip,Loads the selected replay.,Carga la repetición seleccionada.
-Replay_db_save_archive_tooltip,Downloads the selected database replay into your local archive.,Descarga la repetición seleccionada de la base de datos a tu archivo local.
-Replay_filename_path_tooltip,Path or URL of a replay file to load.,Ruta o URL de un archivo de repetición para cargar.
-Replay_filename_load_tooltip,Loads (or downloads) the replay file specified above.,Carga (o descarga) el archivo de repetición especificado arriba.
-Replay_play_restart_tooltip,Plays or restarts the loaded replay.,Reproduce o reinicia la repetición cargada.
-Replay_autoplay_tooltip,"Automatically plays the next replay in the list once the current one finishes.","Reproduce automáticamente la siguiente repetición de la lista cuando termina la actual."
-Unlimited_replay_takeover_tooltip,Opens the unlimited replay takeover window (experimental).,Abre la ventana de toma de control ilimitada de repeticiones (experimental).
-Takeover_as_p1_tooltip,"Switches to training mode and lets you take control of P1's recorded inputs mid-replay.","Cambia a modo entrenamiento y te permite tomar control de las entradas grabadas de P1 en medio de la repetición."
-Takeover_as_p2_tooltip,Same as Takeover as P1 but for P2.,Igual que Tomar control como P1 pero para P2.
-Load_replay_state_tooltip,Restores the pre-takeover snapshot and re-arms the loaded playback.,Restaura la instantánea previa a la toma de control y rearma la grabación cargada.
-Return_to_replay_tooltip,Stops the takeover and returns to Replay Theater mode.,Detiene la toma de control y vuelve al modo Teatro de Repeticiones.
-Rematch_settings_tooltip,Sets the online room's rematch count rule.,Establece la regla de cantidad de revanchas de la sala en línea.
-Combo_data_button_tooltip,Opens the combo data window.,Abre la ventana de datos de combos.
-Input_buffer_button_tooltip,Opens the input buffer display for this player.,Abre la visualización del buffer de entradas para este jugador.
-Wakeup_control_delay_tooltip,Frame delay added before P2's wakeup timing triggers.,Retraso en frames añadido antes de que se active el tiempo de wakeup de P2.
-Wakeup_control_skew_tooltip,"Random +/- frame variance added on top of the wakeup delay each time.","Variación aleatoria +/- en frames añadida sobre el retraso de wakeup cada vez."
-Wakeup_type_selection_tooltip,"Multi-select which wakeup types P2 can be forced into; one is picked at random among the checked options each time.","Selección múltiple de los tipos de wakeup a los que se puede forzar a P2; se elige uno al azar entre las opciones marcadas cada vez."

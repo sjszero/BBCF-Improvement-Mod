@@ -11,7 +11,6 @@
 #include <atlstr.h>
 #include <sstream>
 #include <random>
-#include <cctype>
 
 #define MAX_NUM_OF_PAL_SLOTS 24
 const char* implTemplates[]
@@ -132,9 +131,6 @@ void PaletteManager::ApplyDefaultCustomPalette(CharIndex charIndex, CharPaletteH
 
 	const int curPalIndex = charPalHandle.GetOrigPalIndex();
 	const char* curPalName = m_paletteSlots[charIndex][curPalIndex].c_str();
-
-	LOG(1, "ApplyDefaultCustomPalette char=%s slot=%d -> ini entry='%s'\n",
-		getCharacterNameByIndexA(charIndex).c_str(), curPalIndex, curPalName);
 
 	if (strncmp(curPalName, "", IMPL_PALNAME_LENGTH) == 0 ||
 		strncmp(curPalName, "Default", IMPL_PALNAME_LENGTH) == 0)
@@ -399,21 +395,18 @@ void PaletteManager::LoadHplFile(const std::string& fullPath, const std::string&
 	}
 }
 
-static std::wstring GetPalettesIniFullPath()
-{
-	TCHAR pathBuf[MAX_PATH];
-	GetModuleFileName(NULL, pathBuf, MAX_PATH);
-	std::wstring::size_type pos = std::wstring(pathBuf).find_last_of(L"\\");
-	return std::wstring(pathBuf).substr(0, pos) + L"\\palettes.ini";
-}
-
 void PaletteManager::LoadPaletteSettingsFile()
 {
 	InitPaletteSlotsVector();
 
 	LOG(2, "LoadPaletteSettingsFile\n");
 
-	std::wstring wFullPath = GetPalettesIniFullPath();
+	TCHAR pathBuf[MAX_PATH];
+	GetModuleFileName(NULL, pathBuf, MAX_PATH);
+	std::wstring::size_type pos = std::wstring(pathBuf).find_last_of(L"\\");
+	std::wstring wFullPath = std::wstring(pathBuf).substr(0, pos);
+
+	wFullPath += L"\\palettes.ini";
 
 	if (!PathFileExists(wFullPath.c_str()))
 	{
@@ -448,58 +441,6 @@ void PaletteManager::LoadPaletteSettingsFile()
 			m_paletteSlots[i][iSlot-1] = pszConvertedAnsiString;
 		}
 	}
-}
-
-bool PaletteManager::SavePaletteSettingsFile(const std::vector<std::vector<std::string>>& slots)
-{
-	LOG(2, "SavePaletteSettingsFile\n");
-
-	const std::wstring wFullPath = GetPalettesIniFullPath();
-
-	// Keep the General section alive when creating the file from scratch.
-	if (!PathFileExists(wFullPath.c_str()))
-	{
-		if (!WritePrivateProfileString(L"General", L"OnlinePalettes", L"1", wFullPath.c_str()))
-		{
-			LOG(2, "\tCouldn't create 'palettes.ini'!\n");
-			g_imGuiLogger->Log("[error] Couldn't create 'palettes.ini'!\n");
-			return false;
-		}
-		m_loadOnlinePalettes = true;
-	}
-
-	for (int i = 0; i < getCharactersCount() && i < (int)slots.size(); i++)
-	{
-		const std::wstring section = getCharacterNameByIndexW(i);
-
-		for (int iSlot = 1; iSlot <= MAX_NUM_OF_PAL_SLOTS; iSlot++)
-		{
-			const std::string& value = slots[i][iSlot - 1];
-			const std::wstring wKey = std::to_wstring(iSlot);
-
-			BOOL written;
-			if (value.empty())
-			{
-				// Removing the key keeps the ini free of empty entries.
-				written = WritePrivateProfileString(section.c_str(), wKey.c_str(), NULL, wFullPath.c_str());
-			}
-			else
-			{
-				CA2CT wValue(value.c_str());
-				written = WritePrivateProfileString(section.c_str(), wKey.c_str(), wValue, wFullPath.c_str());
-			}
-
-			if (!written)
-			{
-				LOG(2, "\tCouldn't write to 'palettes.ini'!\n");
-				g_imGuiLogger->Log("[error] Couldn't write to 'palettes.ini'!\n");
-				return false;
-			}
-		}
-	}
-
-	m_paletteSlots = slots;
-	return true;
 }
 
 void PaletteManager::InitPaletteSlotsVector()
@@ -575,63 +516,6 @@ bool PaletteManager::WritePaletteToFile(CharIndex charIndex, IMPL_data_t *filled
 		LOG(2, "\tCouldn't open %s!\n", strerror(errno));
 		g_imGuiLogger->Log("[error] Unable to open '%s' : %s\n", path.c_str(), strerror(errno));
 		return false;
-	}
-
-	return true;
-}
-
-bool PaletteManager::WriteDownloadedPaletteToFile(CharIndex charIndex, IMPL_data_t* filledPalData, std::string* savedPalName)
-{
-	LOG(2, "WriteDownloadedPaletteToFile\n");
-
-	if (!filledPalData || charIndex >= getCharactersCount())
-		return false;
-
-	std::string baseName;
-	for (int i = 0; i < IMPL_PALNAME_LENGTH && filledPalData->palInfo.palName[i] != '\0'; ++i)
-	{
-		const unsigned char c = static_cast<unsigned char>(filledPalData->palInfo.palName[i]);
-		if (std::isalnum(c) || c == '_' || c == '-' || c == '.' || c == ' ')
-		{
-			baseName.push_back(static_cast<char>(c));
-		}
-	}
-
-	while (!baseName.empty() && (baseName.back() == ' ' || baseName.back() == '.'))
-	{
-		baseName.pop_back();
-	}
-
-	if (baseName.empty() ||
-		baseName == "Default" ||
-		baseName == "Random" ||
-		baseName == "Random_Exclude_Default")
-	{
-		baseName = "DownloadedPalette";
-	}
-
-	std::string finalName = baseName;
-	std::string folder = std::string("BBCF_IM\\Palettes\\") + getCharacterNameByIndexA(charIndex) + "\\";
-
-	for (int suffix = 2; suffix < 1000; ++suffix)
-	{
-		const std::string path = folder + finalName + IMPL_FILE_EXTENSION;
-		if (GetFileAttributesA(path.c_str()) == INVALID_FILE_ATTRIBUTES)
-			break;
-
-		finalName = baseName + "_" + std::to_string(suffix);
-	}
-
-	IMPL_data_t paletteToWrite = *filledPalData;
-	memset(paletteToWrite.palInfo.palName, 0, IMPL_PALNAME_LENGTH);
-	strncpy(paletteToWrite.palInfo.palName, finalName.c_str(), IMPL_PALNAME_LENGTH - 1);
-
-	if (!WritePaletteToFile(charIndex, &paletteToWrite))
-		return false;
-
-	if (savedPalName)
-	{
-		*savedPalName = finalName;
 	}
 
 	return true;
@@ -784,78 +668,21 @@ void PaletteManager::SetCurrentPalInfo(CharPaletteHandle& palHandle, IMPL_info_t
 
 void PaletteManager::OnUpdate(CharPaletteHandle & P1, CharPaletteHandle & P2)
 {
-	// Runs after this frame's draw calls, so it's safe to correct any toggle
-	// artifact UpdatePalette() left behind before it can leak into next frame.
-	P1.CorrectToggleArtifact();
-	P2.CorrectToggleArtifact();
-
 	P1.UnlockUpdate();
 	P2.UnlockUpdate();
 }
 
-// Platinum's drive lets her hold an item, and while she does, her script runs the PT_LinkColor
-// command (handler at BBCF.exe 0x005B2AC3). That command points her CharData::linkedPaletteId at
-// one of eight engine-side PaletteControlObj palettes chosen by her item type (CharData +0x1A0),
-// and the renderer then draws her from that palette instead of her own palette storage.
-//
-// Those PaletteControlObj palettes are built once, when the round loads, from whatever her color
-// slot held at that moment - and nothing refreshes them afterwards. That is the whole bug:
-//   - palettes.ini works because PaletteManager::OnMatchInit patches the palette storage before
-//     the round's palettes are built, so the copy they capture is already the custom one.
-//   - picking a palette mid-match writes the storage correctly (verified in memory), but the
-//     already-built copy keeps the original colors, so she reverts to her native color for as
-//     long as she holds an item. Re-picking the palette cannot fix it, and neither can writing
-//     the data harder: by then the stale palette only exists past the point we can reach.
-//
-// The same handler writes -1 to linkedPaletteId when she has no item, meaning "draw from my own
-// palette storage" - so clearing the link is a value the game itself uses, not an invented state.
-// We only clear it while a custom palette is actually active, so unmodified play is untouched.
-void PaletteManager::ClearPlatinumItemPaletteLink(Player& playerOne, Player& playerTwo)
-{
-	Player* const players[2] = { &playerOne, &playerTwo };
-
-	for (int i = 0; i < 2; ++i)
-	{
-		if (players[i]->IsCharDataNullPtr())
-			continue;
-
-		CharData* const charData = players[i]->GetData();
-		if (charData == nullptr || charData->charIndex != CharIndex_Platinum)
-			continue;
-
-		if (charData->linkedPaletteId == -1)
-			continue;
-
-		if (!players[i]->GetPalHandle().IsCustomPaletteActive())
-			continue;
-
-		LOG(2, "PaletteManager::ClearPlatinumItemPaletteLink P%d dropping stale item palette link %d\n",
-			i + 1, charData->linkedPaletteId);
-
-		charData->linkedPaletteId = -1;
-	}
-}
-
 void PaletteManager::OnMatchInit(Player& playerOne, Player& playerTwo)
 {
-	LOG(1, "PaletteManager::OnMatchInit -- P1 --\n");
 	playerOne.GetPalHandle().OnMatchInit();
-
-	LOG(1, "PaletteManager::OnMatchInit -- P2 --\n");
 	playerTwo.GetPalHandle().OnMatchInit();
 
-	LOG(1, "PaletteManager::OnMatchInit applying default for P1\n");
 	ApplyDefaultCustomPalette((CharIndex)playerOne.GetData()->charIndex, playerOne.GetPalHandle());
-
-	LOG(1, "PaletteManager::OnMatchInit applying default for P2\n");
 	ApplyDefaultCustomPalette((CharIndex)playerTwo.GetData()->charIndex, playerTwo.GetPalHandle());
 }
 
 void PaletteManager::OnMatchRematch(Player& playerOne, Player& playerTwo)
 {
-	playerOne.GetPalHandle().OnMatchRematch();
-	playerTwo.GetPalHandle().OnMatchRematch();
-	
 	playerOne.GetPalHandle().SetPointerBasePal(nullptr);
 	playerTwo.GetPalHandle().SetPointerBasePal(nullptr);
 }

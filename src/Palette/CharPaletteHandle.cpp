@@ -178,27 +178,17 @@ void CharPaletteHandle::ReplaceSinglePalFile(const char* newPalData, PaletteFile
 
 void CharPaletteHandle::OnMatchInit()
 {
-	CorrectToggleArtifact();
-
-	int rawIndex = *m_pCurPalIndex;
-
-	m_origPalIndex = rawIndex;
-	m_lastLogicalPalIndex = rawIndex;
-
-	LOG(1, "CharPaletteHandle::OnMatchInit raw native color slot = %d (pCurPalIndex=%p)\n", m_origPalIndex, (void*)m_pCurPalIndex);
+	m_origPalIndex = *m_pCurPalIndex;
 
 	BackupOrigPal();
 
 	m_selectedCustomPalIndex = 0;
 
-	m_switchPalIndex1 = rawIndex;
-
+	m_switchPalIndex1 = *m_pCurPalIndex;
+	
 	m_switchPalIndex2 = m_switchPalIndex1 == MAX_PAL_INDEX
 		? m_switchPalIndex1 - 1
 		: m_switchPalIndex1 + 1;
-
-	m_lastTogglePairA = m_switchPalIndex1;
-	m_lastTogglePairB = m_switchPalIndex2;
 
 	// Clear palette info
 	IMPL_info_t palInfo = { "Default" };
@@ -282,18 +272,6 @@ bool CharPaletteHandle::IsCurrentPalWithBloom() const
 		m_currentPalData.palInfo.hasBloom;
 }
 
-bool CharPaletteHandle::IsCustomPaletteActive() const
-{
-	if (m_pCurPalIndex == nullptr)
-		return false;
-
-	char* pLivePalData = nullptr;
-	if (!TryGetPalFileAddr(*m_pCurPalIndex, PaletteFile_Character, &pLivePalData))
-		return false;
-
-	return memcmp(pLivePalData, m_origPalBackup.file0, IMPL_PALETTE_DATALEN) != 0;
-}
-
 void CharPaletteHandle::ReplacePalArrayInMemory(char* Dst, const void* Src)
 {
 	// The palette datas are duplicated in the memory at offset 0x800
@@ -374,29 +352,6 @@ void CharPaletteHandle::UpdatePalette()
 		: m_switchPalIndex1;
 
 	LockUpdate();
-}
-
-void CharPaletteHandle::CorrectToggleArtifact()
-{
-	// Called every frame via PaletteManager::OnUpdate, including outside of a match
-	// (e.g. at the main menu) when the pointer hasn't been resolved yet.
-	if (m_pCurPalIndex == nullptr)
-		return;
-
-	// If the raw slot is sitting on the toggle pair our own last hot-swap created, the
-	// player didn't pick a new native color -- it's just our redraw trick's leftover
-	// state. Restore the slot they actually chose instead of trusting the artifact.
-	// Called every frame (not just OnMatchInit) so a mid-match toggle -- e.g. from
-	// RestoreOrigPal on a state transition -- never leaks the artifact past one frame.
-	int rawIndex = *m_pCurPalIndex;
-
-	if (m_lastLogicalPalIndex >= 0 &&
-		(rawIndex == m_lastTogglePairA || rawIndex == m_lastTogglePairB) &&
-		rawIndex != m_lastLogicalPalIndex)
-	{
-		LOG(1, "CharPaletteHandle::CorrectToggleArtifact detected toggle artifact (raw=%d), restoring logical slot %d\n", rawIndex, m_lastLogicalPalIndex);
-		*m_pCurPalIndex = m_lastLogicalPalIndex;
-	}
 }
 
 void CharPaletteHandle::LockUpdate()

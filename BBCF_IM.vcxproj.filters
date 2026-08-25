@@ -73,9 +73,6 @@
     <ClCompile Include="depends\imgui\imgui_demo.cpp" />
     <ClCompile Include="depends\imgui\imgui_draw.cpp" />
     <ClCompile Include="depends\imgui\imgui_impl_dx9.cpp" />
-    <ClCompile Include="depends\imgui\imgui_impl_win32.cpp" />
-    <ClCompile Include="depends\imgui\imgui_tables.cpp" />
-    <ClCompile Include="depends\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\Core\utils.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -122,11 +119,6 @@
     <ClCompile Include="src\Overlay\Window\DebugWindow.cpp" />
     <ClCompile Include="src\Overlay\Window\LogWindow.cpp" />
     <ClCompile Include="src\Overlay\Window\MainWindow.cpp" />
-    <ClCompile Include="src\Overlay\Window\PalettesConfigWindow.cpp" />
-    <ClCompile Include="src\Overlay\Window\SettingsIniWindow.cpp" />
-    <ClCompile Include="src\Overlay\Window\Ranked\RankedListFilterWindow.cpp">
-      <Filter>src\Overlay\Window\Ranked</Filter>
-    </ClCompile>
     <ClCompile Include="src\Overlay\Window\Ranked\RankedMainMenuSection.cpp">
       <Filter>src\Overlay\Window\Ranked</Filter>
     </ClCompile>
@@ -155,14 +147,11 @@
     <ClCompile Include="src\Game\Player.cpp" />
     <ClCompile Include="src\Game\gamestates.cpp" />
     <ClCompile Include="src\Game\MatchState.cpp" />
-    <ClCompile Include="src\Game\NetworkStallDiagnostics.cpp" />
-    <ClCompile Include="src\Game\SpectatorSyncDiagnostics.cpp" />
     <ClCompile Include="src\Network\NetworkManager.cpp" />
     <ClCompile Include="src\Overlay\Logger\ImGuiLogger.cpp" />
     <ClCompile Include="src\Overlay\Window\HitboxOverlay.cpp" />
     <ClCompile Include="src\Network\RoomManager.cpp" />
     <ClCompile Include="src\Network\OnlinePaletteManager.cpp" />
-    <ClCompile Include="src\Network\RankedListConnectionFilter.cpp" />
     <ClCompile Include="src\Palette\CharPaletteHandle.cpp" />
     <ClCompile Include="src\Palette\PaletteManager.cpp" />
     <ClCompile Include="src\CustomGameMode\customGameMode.cpp" />
@@ -177,8 +166,6 @@
     <ClCompile Include="src\Overlay\Widget\StageSelectWidget.cpp" />
     <ClCompile Include="src\Overlay\Widget\GameModeSelectWidget.cpp" />
     <ClCompile Include="src\Overlay\Widget\ActiveGameModeWidget.cpp" />
-    <ClCompile Include="src\Overlay\Widget\MarkdownRenderer.cpp" />
-    <ClCompile Include="src\Overlay\Window\Ranked\RankedLeaderboardWindow.cpp" />
     <ClCompile Include="src\Game\Scr\ScrStateReader.cpp" />
     <ClCompile Include="src\Overlay\Window\ScrWindow.cpp" />
     <ClCompile Include="src\Game\ReplayStates\FrameState.cpp" />
@@ -198,7 +185,6 @@
     <ClCompile Include="src\Game\SnapshotApparatus\SnapshotApparatus.cpp" />
     <ClCompile Include="src\Network\ReplayUploadManager.cpp" />
     <ClCompile Include="src\Overlay\Window\ReplayDBPopupWindow.cpp" />
-    <ClCompile Include="src\Overlay\Window\PaletteSharePopupWindow.cpp" />
     <ClCompile Include="src\Overlay\Window\FrameHistory\FrameHistory.cpp" />
     <ClCompile Include="src\Overlay\Window\FrameHistory\FrameHistoryWindow.cpp" />
     <ClCompile Include="src\Game\ScenesManager\ScenesManager.cpp" />
@@ -239,11 +225,10 @@
   <ItemGroup>
     <ClInclude Include="depends\imgui\imgui.h" />
     <ClInclude Include="depends\imgui\imgui_impl_dx9.h" />
-    <ClInclude Include="depends\imgui\imgui_impl_win32.h" />
     <ClInclude Include="depends\imgui\imgui_internal.h" />
-    <ClInclude Include="depends\imgui\imstb_rectpack.h" />
-    <ClInclude Include="depends\imgui\imstb_textedit.h" />
-    <ClInclude Include="depends\imgui\imstb_truetype.h" />
+    <ClInclude Include="depends\imgui\stb_rect_pack.h" />
+    <ClInclude Include="depends\imgui\stb_textedit.h" />
+    <ClInclude Include="depends\imgui\stb_truetype.h" />
     <ClInclude Include="depends\imgui\imconfig.h" />
     <ClInclude Include="src\D3D9EXWrapper\ID3D9EXWrapper.h">
       <Filter>include\D3D9ExWrapper</Filter>
@@ -328,11 +313,6 @@
     <ClInclude Include="src\Overlay\Window\DebugWindow.h" />
     <ClInclude Include="src\Overlay\Window\LogWindow.h" />
     <ClInclude Include="src\Overlay\Window\MainWindow.h" />
-    <ClInclude Include="src\Overlay\Window\PalettesConfigWindow.h" />
-    <ClInclude Include="src\Overlay\Window\SettingsIniWindow.h" />
-    <ClInclude Include="src\Overlay\Window\Ranked\RankedListFilterWindow.h">
-      <Filter>src\Overlay\Window\Ranked</Filter>
-    </ClInclude>
     <ClInclude Include="src\Overlay\Window\Ranked\RankedMainMenuSection.h">
       <Filter>src\Overlay\Window\Ranked</Filter>
     </ClInclude>
@@ -365,14 +345,11 @@
     <ClInclude Include="src\Overlay\Window\IWindow.h" />
     <ClInclude Include="src\Game\Player.h" />
     <ClInclude Include="src\Game\MatchState.h" />
-    <ClInclude Include="src\Game\NetworkStallDiagnostics.h" />
-    <ClInclude Include="src\Game\SpectatorSyncDiagnostics.h" />
     <ClInclude Include="src\Network\NetworkManager.h" />
     <ClInclude Include="src\Network\Packet.h" />
     <ClInclude Include="src\Overlay\Window\HitboxOverlay.h" />
     <ClInclude Include="src\Game\Room\Room.h" />
     <ClInclude Include="src\Network\RoomManager.h" />
-    <ClInclude Include="src\Network\RankedListConnectionFilter.h" />
     <ClInclude Include="src\Game\Room\RoomMemberEntry.h" />
     <ClInclude Include="src\Network\OnlinePaletteManager.h" />
     <ClInclude Include="src\Palette\CharPaletteHandle.h" />
@@ -389,8 +366,6 @@
     <ClInclude Include="src\Overlay\Widget\StageSelectWidget.h" />
     <ClInclude Include="src\Overlay\Widget\GameModeSelectWidget.h" />
     <ClInclude Include="src\Overlay\Widget\ActiveGameModeWidget.h" />
-    <ClInclude Include="src\Overlay\Widget\MarkdownRenderer.h" />
-    <ClInclude Include="src\Overlay\Window\Ranked\RankedLeaderboardWindow.h" />
     <ClInclude Include="src\Game\Playbacks\PlaybackSlot.h" />
     <ClInclude Include="src\Game\Playbacks\PlaybackManager.h" />
     <ClInclude Include="src\Game\Playbacks\UnlimitedPlaybackManager.h" />
@@ -418,7 +393,6 @@
     <ClInclude Include="src\Game\ReplayTakeover\ReplayTakeoverFeatureFlags.h" />
     <ClInclude Include="src\Network\ReplayUploadManager.h" />
     <ClInclude Include="src\Overlay\Window\ReplayDBPopupWindow.h" />
-    <ClInclude Include="src\Overlay\Window\PaletteSharePopupWindow.h" />
     <ClInclude Include="src\Core\keycodes.h" />
     <ClInclude Include="src\Game\ReplayFiles\ReplayList.h" />
     <ClInclude Include="src\Overlay\Window\FrameHistory\FrameHistory.h" />

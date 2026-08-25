@@ -33,7 +33,8 @@ namespace ControllerSettings
                 }
                 if (steamInputLikely)
                 {
-                        ImGui::BeginDisabled();
+                        ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+                        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
                 }
                 if (ImGui::Checkbox(Messages.Local_Controller_Override(), &overrideEnabled))
                 {
@@ -46,7 +47,8 @@ ImGui::ShowHelpMarker(Messages.Controller_override_help());
 
                 if (steamInputLikely)
                 {
-                        ImGui::EndDisabled();
+                        ImGui::PopStyleVar();
+                        ImGui::PopItemFlag();
                 }
 
                 if (!showOverrideControls)
@@ -101,7 +103,8 @@ ImGui::ShowHelpMarker(Messages.Controller_override_help());
                         bool disableTest = (selectedInfo && selectedInfo->isKeyboard);
                         if (disableTest)
                         {
-                                ImGui::BeginDisabled();
+                                ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+                                ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
                         }
 
                         ImGui::SameLine();
@@ -113,7 +116,8 @@ ImGui::ShowHelpMarker(Messages.Controller_override_help());
 
                         if (disableTest)
                         {
-                                ImGui::EndDisabled();
+                                ImGui::PopStyleVar();
+                                ImGui::PopItemFlag();
                         }
                         };
 

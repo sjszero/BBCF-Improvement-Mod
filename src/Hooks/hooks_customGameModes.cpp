@@ -4,7 +4,6 @@
 
 #include "Core/interfaces.h"
 #include "Core/logger.h"
-#include "Core/utils.h"
 #include "CustomGameMode/customGameMode.h"
 #include "Game/gamestates.h"
 
@@ -216,7 +215,7 @@ void __declspec(naked)vampire_HealthDrain()
 		{
 			//do not reduce hp while distortions / od finishers / astrals are happening:
 			if (!player1->isDoingDistortion && !player2->isDoingDistortion)
-				vampirism_timer += GetImGuiDeltaTime();
+				vampirism_timer += ImGui::GetIO().DeltaTime;
 		}
 		else
 		{
@@ -349,7 +348,7 @@ void __declspec(naked)exVampire_HealthDrain()
 			//do not reduce hp while distortions / od finishers / astrals are happening:
 			if (!player1->isDoingDistortion && !player2->isDoingDistortion)
 			{
-				vampirism_timer += GetImGuiDeltaTime();
+				vampirism_timer += ImGui::GetIO().DeltaTime;
 			}
 		}
 		else

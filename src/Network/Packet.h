@@ -17,8 +17,6 @@ enum PacketType : uint16_t
 	PacketType_UploadReplayEnabled_Broadcast,
 	PacketType_UploadReplayEnabled_Check,
 	PacketType_UploadReplayEnabled_Response,
-	PacketType_PaletteDownloadPermission,
-	PacketType_PlatinumVoiceChoice,
 };
 
 // BBCF packets' first two fields must be the packet size

@@ -135,10 +135,7 @@ namespace
 			return true;
 		const std::wstring dst = Combine(backupDir, installRelative);
 		if (!CopyFileWithDirs(src, dst))
-		{
-			Log(h, "Backup failed: %s -> %s (Windows error %lu)", WideToUtf8(src).c_str(), WideToUtf8(dst).c_str(), GetLastError());
 			return false;
-		}
 		touched.push_back(installRelative);
 		return true;
 	}
@@ -332,11 +329,7 @@ namespace
 		}
 
 		const std::wstring backupDir = Combine(h.backupRoot, Utf8ToWide(h.tag + "-" + Stamp()));
-		if (!EnsureDir(backupDir))
-		{
-			Log(h, "Backup directory creation failed: %s (Windows error %lu)", WideToUtf8(backupDir).c_str(), GetLastError());
-			return false;
-		}
+		EnsureDir(backupDir);
 		std::vector<std::wstring> touched;
 		const std::vector<std::wstring> files = {
 			L"dinput8.dll",
@@ -352,10 +345,8 @@ namespace
 
 		BackupIfExists(h, L"settings.ini", backupDir, touched);
 		BackupIfExists(h, L"palettes.ini", backupDir, touched);
-		if (!CopyFileWithDirs(Combine(h.installRoot, L"settings.ini"), Combine(h.installRoot, L"settings.ini.bak-before-" + Utf8ToWide(h.tag))))
-			Log(h, "settings.ini pre-update backup copy skipped or failed (Windows error %lu)", GetLastError());
-		if (!CopyFileWithDirs(Combine(h.installRoot, L"palettes.ini"), Combine(h.installRoot, L"palettes.ini.bak-before-" + Utf8ToWide(h.tag))))
-			Log(h, "palettes.ini pre-update backup copy skipped or failed (Windows error %lu)", GetLastError());
+		CopyFileWithDirs(Combine(h.installRoot, L"settings.ini"), Combine(h.installRoot, L"settings.ini.bak-before-" + Utf8ToWide(h.tag)));
+		CopyFileWithDirs(Combine(h.installRoot, L"palettes.ini"), Combine(h.installRoot, L"palettes.ini.bak-before-" + Utf8ToWide(h.tag)));
 
 		struct CopyOp { const wchar_t* src; const wchar_t* dst; };
 		const CopyOp ops[] = {
@@ -371,7 +362,7 @@ namespace
 			const std::wstring src = Combine(h.stagedRoot, ops[i].src);
 			if (Exists(src) && !CopyFileWithDirs(src, Combine(h.installRoot, ops[i].dst)))
 			{
-				Log(h, "Copy failed: %s (Windows error %lu)", WideToUtf8(src).c_str(), GetLastError());
+				Log(h, "Copy failed: %s", WideToUtf8(src).c_str());
 				Rollback(h, backupDir, touched);
 				return false;
 			}

@@ -7,7 +7,6 @@
 #include "Game/Player.h"
 
 #include <vector>
-#include <string>
 
 class PaletteManager
 {
@@ -19,7 +18,6 @@ public:
 	bool PushImplFileIntoVector(IMPL_t &filledPal);
 	bool PushImplFileIntoVector(CharIndex charIndex, IMPL_data_t &filledPalData);
 	bool WritePaletteToFile(CharIndex charIndex, IMPL_data_t *filledPalData);
-	bool WriteDownloadedPaletteToFile(CharIndex charIndex, IMPL_data_t* filledPalData, std::string* savedPalName = nullptr);
 
 	void LoadAllPalettes();
 	void ReloadAllPalettes();
@@ -44,15 +42,9 @@ public:
 	void SetCurrentPalInfo(CharPaletteHandle& palHandle, IMPL_info_t& palInfo);
 	const IMPL_data_t& GetCurrentPalData(CharPaletteHandle& palHandle);
 	void LoadPaletteSettingsFile();
-	const std::vector<std::vector<std::string>>& GetPaletteSlots() const { return m_paletteSlots; }
-	bool SavePaletteSettingsFile(const std::vector<std::vector<std::string>>& slots);
 
 	// Call it ONCE per frame
 	void OnUpdate(CharPaletteHandle& P1, CharPaletteHandle& P2);
-
-	// Call it ONCE per frame, after OnUpdate. Keeps Platinum's custom palette applied while she
-	// is holding a drive item.
-	void ClearPlatinumItemPaletteLink(Player& playerOne, Player& playerTwo);
 
 	// Call it ONCE upon match start
 	void OnMatchInit(Player& playerOne, Player& playerTwo);

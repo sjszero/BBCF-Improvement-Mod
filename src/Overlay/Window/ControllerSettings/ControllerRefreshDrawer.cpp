@@ -27,7 +27,8 @@ ImGui::ShowHelpMarker(Messages.Controller_refresh_help());
                         ImGui::SameLine();
                         if (steamInputLikely)
                         {
-                                ImGui::BeginDisabled();
+                                ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+                                ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
                         }
 
                         if (ImGui::Button(Messages.Open_Joy_cpl()))
@@ -38,7 +39,8 @@ ImGui::ShowHelpMarker(Messages.Controller_refresh_help());
 
                         if (steamInputLikely)
                         {
-                                ImGui::EndDisabled();
+                                ImGui::PopStyleVar();
+                                ImGui::PopItemFlag();
                         }
                 }
 

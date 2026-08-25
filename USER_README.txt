@@ -77,15 +77,18 @@ Known issues
 ==========================
 1. Vampire and Extreme Vampire desync online. Avoid using these two custom game modes when online.
 
-2. Hitbox overlay is not aligned properly or is off-screen when the game's window resolution mismatches the rendering resolution.
+2. Platinum keeps swapping between her default and the selected custom palette whenever she has her drive active.
+	- To prevent this, assign her custom palette in palettes.ini before the match starts, and do not switch it during match.
+
+3. Hitbox overlay is not aligned properly or is off-screen when the game's window resolution mismatches the rendering resolution.
 	- To prevent this, open up the settings.ini file, and set Viewport to 2, while setting the RenderingWidth and RenderingHeight to the resolution values you have in the ingame display options.
 
-3. Hitbox overlay shows phantom hitboxes that are disabled by the engine (shoutout to Shtkn for discovering this)
+4. Hitbox overlay shows phantom hitboxes that are disabled by the engine (shoutout to Shtkn for discovering this)
 
-4. Screen not displaying properly when Viewport in settings.ini is set to 2 or 3 with keep aspect ratio enabled in in-game settings. This is still being investigated. For now, either
+5. Screen not displaying properly when Viewport in settings.ini is set to 2 or 3 with keep aspect ratio enabled in in-game settings. This is still being investigated. For now, either
 disable keep aspect ratio or keep the Viewport option set to 1.
 
-5. Enabling "Separate Keyboard and Controllers" crashes the game on startup. The option is forced off each launch and no longer saves between sessions; enable it manually after the game loads if needed.
+6. Enabling "Separate Keyboard and Controllers" crashes the game on startup. The option is forced off each launch and no longer saves between sessions; enable it manually after the game loads if needed.
 
 Troubleshooting
 ==========================
@@ -114,17 +117,6 @@ Delete the "menus.ini" file found in the game's root folder to reset the positio
 Keep in mind that the mod may partially, or completely stop working whenever a new official patch of the game is released. (Though unlikely)
 
 Changelog
-
-===============================
-30-06-2026 -- version 3.111
-===============================
-Bugfixes:
-- Fixed a crash occurring in Ranked mode related to palette handling (+@GrimFlash)
-- Fixed a crash occurring when exiting the Replay Theater after changing a replay's favorite status
-- Fixed replay list to use the /download endpoint with a smaller page size (+@Tadatys)
-
-Changes:
-- The UploadReplayDatabase server address in settings.ini will now be automatically updated to the new server address(http://89.167.76.6) if it was previously set to the old one(http://50.118.225.175). Custom server addresses are left untouched.
 
 ===============================
 26-11-2025 -- version 3.110

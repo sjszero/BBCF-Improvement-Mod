@@ -31,7 +31,6 @@ public:
         static bool debugLoggingSettingMissing;
 
         static void applySettingsIni(D3DPRESENT_PARAMETERS* pPresentationParameters);
-        static void applyRuntimeSettings();
         static bool loadSettingsFile();
         static void initSavedSettings();
         //static void setViewportSize(D3DVIEWPORT9 Viewport);

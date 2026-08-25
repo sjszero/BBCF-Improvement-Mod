@@ -33,48 +33,6 @@ SETTING(bool, rankedAutomationHarnessEnabled, "RankedAutomationHarnessEnabled", 
 SETTING(std::string, rankedAutomationHarnessHotkey, "RankedAutomationHarnessHotkey", "F8");
 SETTING(bool, rankedAutomationHarnessAutorun, "RankedAutomationHarnessAutorun", "0");
 SETTING(bool, rankedAutomationHarnessQuitOnFinish, "RankedAutomationHarnessQuitOnFinish", "0");
-// Watchdog for the "D-Code bug": when a per-room-member profile fetch wedges
-// (state 6 payload-rejected, or a >15s state-2 stall), force the slot back to
-// idle so the game's own retry path re-fetches. See docs/Research/DCodeNetworkStallBug.md.
-SETTING(bool, dcodeAutoRecover, "DCodeAutoRecover", "1");
-// TEST ONLY: sabotage the first in-flight profile fetch after launch (corrupts
-// the receive buffer so the game's checksum rejects it) to exercise the state-6
-// wedge + auto-recovery end-to-end. Fires once per launch while set to 1.
-SETTING(bool, dcodeForceFailureOnce, "DCodeForceFailureOnce", "0");
-// When the game latches its "network profile storage unavailable" flag (which
-// silently stops uploading your profile, so ranked/net-color progress is lost on
-// restart), reset it so uploads resume. See docs/Research/DCodeNetworkStallBug.md.
-SETTING(bool, dcodeTusGateAutoClear, "DCodeTusGateAutoClear", "1");
-// Spectator desync fix: when the spectator's SyncInput would report starvation
-// (input not yet received over the network), substitutes the previous frame's real
-// input instead of letting the game's caller advance the simulation with a fake
-// zeroed input (the desync mechanism). Always active while spectatorSyncHooksEnabled
-// is on -- there is no separate on/off toggle for the fix itself, since substitution
-// is unconditionally safer than both the original bug and the retired "force stall"
-// attempt (see docs/Research/SpectatorDesyncInvestigation.md for why that one
-// crashed the game with a GGPO event-queue assertion, and why this design doesn't).
-// Kill-switch for the spectator-sync hooks (SpectatorSyncInputEntry +
-// SpectatorSyncStarvation). 1 = install as normal (default). 0 = don't install them
-// at all, falling back to pure vanilla behavior (the original desync bug, unfixed).
-// Read at startup only -- requires a restart to take effect either way.
-SETTING(bool, spectatorSyncHooksEnabled, "SpectatorSyncHooksEnabled", "1");
-// Force Platinum's random personality/voice pick (Sena/Luna) instead of letting the
-// game roll it: 0 = Default (vanilla RNG), 1 = force Luna, 2 = force Sena. Enum options
-// rendered by SettingsIniWindow.cpp's kSettingEnumMetadata. Overwrites the game's own
-// per-player select-struct field (base+0x164C, see docs/Research) right before it gets
-// copied into the committed selection data, so both the "live" and "committed" copies
-// end up with the forced value. Local override only - see the investigation doc for why
-// cross-client sync isn't guaranteed.
-SETTING(int, platinumVoiceChoice, "PlatinumVoiceChoice", "0");
-// Platinum voice override is OFFLINE-ONLY by default. This flag also applies it in ONLINE
-// matches - which is KNOWN TO CAUSE DESYNC ("desync detected", both players kicked from the
-// match). It exists only so the online work can be continued/experimented with; a desync-safe
-// online path is not implemented yet. Leave at 0 unless you know exactly what you are doing.
-// 0 = off (offline only, safe), 1 = also apply online (WILL desync).
-SETTING(bool, platinumVoiceOnlineDesyncUnsafe, "PlatinumVoiceOnlineDesyncUnsafe", "0");
-// Keep the last N sessions' DEBUG.txt files in BBCF_IM\DebugHistory (rotated at
-// launch). 0 = old behavior, DEBUG.txt is overwritten every launch.
-SETTING(int, debugLogSessionHistory, "DebugLogSessionHistory", "10");
 SETTING(bool, urtReTraceEnabled, "URT_RE_TraceEnabled", "0");
 SETTING(int, urtReTraceLevel, "URT_RE_TraceLevel", "2");
 SETTING(int, urtReTraceMaxFileMB, "URT_RE_MaxFileMB", "16");
@@ -82,15 +40,7 @@ SETTING(int, urtReTraceMaxBackups, "URT_RE_MaxBackups", "3");
 SETTING(bool, urtReAllowSizeMismatchProbe, "URT_RE_AllowSizeMismatchProbe", "0");
 SETTING(bool, urtReAllowUnsafeProbeLoad, "URT_RE_AllowUnsafeProbeLoad", "0");
 SETTING(bool, enableInDevelopmentFeatures, "EnableInDevelopmentFeatures", "0");
-SETTING(bool, enableRankedListConnectionFilter, "EnableRankedListConnectionFilter", "0");
-SETTING(bool, showRankedListFilterWindow, "ShowRankedListFilterWindow", "1");
-SETTING(bool, showRankedListHiddenPopup, "ShowRankedListHiddenPopup", "0");
-SETTING(int, rankedListSortMode, "RankedListSortMode", "0");
-SETTING(int, rankedListNetworkFilter, "RankedListNetworkFilter", "0");
-SETTING(bool, hideUnmetRequirementRooms, "HideUnmetRequirementRooms", "0");
 SETTING(bool, loadforeignpalettes, "LoadForeignPalettesToggleDefault", "1");
-// -1 = unset (the mod asks once via an in-game popup), 0 = deny, 1 = allow.
-SETTING(int, allowPaletteDownloads, "AllowPaletteDownloads", "-1");
 SETTING(bool, swapControllerPos, "SwapControllerPos", "0");
 SETTING(bool, EnableControllerHooks, "EnableControllerHooks", "1");
 SETTING(bool, ForceEnableControllerSettingHooks, "ForceEnableControllerSettingHooks", "0");
@@ -99,9 +49,6 @@ SETTING(std::string, ignoredKeyboardIds, "IgnoredKeyboardIds", "");
 SETTING(std::string, keyboardRenameMap, "KeyboardRenameMap", "");
 SETTING(std::string, keyboardMappings, "KeyboardMappings", "");
 SETTING(bool, autoUpdateControllers, "AutomaticallyUpdateControllers", "1");
-SETTING(int, autoRefreshSteamGraceMs, "AutoRefreshSteamGraceMs", "0");
-SETTING(int, autoRefreshFollowupDelayMs, "AutoRefreshFollowupDelayMs", "500");
-SETTING(int, autoRefreshTimerIntervalMs, "AutoRefreshTimerIntervalMs", "100");
 SETTING(int, uploadReplayData, "UploadReplayData", "-1");
 SETTING(std::string, uploadReplayDataHost, "UploadReplayDataHost", "89.167.76.6");
 SETTING(std::string, uploadReplayDataEndpoint, "UploadReplayDataEndpoint", "/upload");

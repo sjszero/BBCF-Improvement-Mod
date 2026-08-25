@@ -223,17 +223,6 @@ namespace
 			state.visibleRank > 0u;
 	}
 
-	// Looser than IsRankedDisplayReadyForOverlay: accepts unranked/no-threshold
-	// characters so the main progress card still shows (as "Unranked") instead
-	// of not appearing at all. Used for the main card, not the win/loss prediction
-	// card, which genuinely needs known rank bounds to compute a prediction.
-	bool IsRankedDisplayValidForOverlay(const RankedProgressDisplayState& state)
-	{
-		return state.valid &&
-			state.characterId != kInvalidRankedCharacterId &&
-			state.characterId < kRankAllCharacterId;
-	}
-
 	enum class RankedPredictionResultKind
 	{
 		Unknown,
@@ -592,6 +581,16 @@ namespace
 		state->valid = true;
 	}
 
+	uint32_t InternalRankToVisibleRank(uint32_t internalRank, bool isUnranked)
+	{
+		if (isUnranked)
+		{
+			return 0;
+		}
+
+		return internalRank + 1u;
+	}
+
 	uint32_t VisibleRankToInternalRank(uint32_t visibleRank)
 	{
 		return visibleRank > 0 ? (visibleRank - 1u) : 0u;
@@ -618,6 +617,51 @@ namespace
 		}
 
 		return nullptr;
+	}
+
+	std::string FormatVisibleRankLabel(uint32_t visibleRank, bool isUnranked)
+	{
+		const char* const specialName = GetRankDisplayName(visibleRank, isUnranked);
+		if (specialName)
+		{
+			return specialName;
+		}
+
+		if (visibleRank >= 1u && visibleRank <= 35u)
+		{
+			char buffer[32] = {};
+			std::snprintf(buffer, sizeof(buffer), "LV%u", static_cast<unsigned int>(visibleRank));
+			return std::string(buffer);
+		}
+
+		char buffer[32] = {};
+		std::snprintf(buffer, sizeof(buffer), "SkillRank_%u", static_cast<unsigned int>(visibleRank));
+		return std::string(buffer);
+	}
+
+	ImVec4 GetVisibleRankColor(uint32_t visibleRank, bool isUnranked)
+	{
+		if (isUnranked || visibleRank == 0u)
+		{
+			return g_rankedOverlayTuning.authColor;
+		}
+
+		if (visibleRank <= 19u)
+		{
+			return g_rankedOverlayTuning.lowRankColor;
+		}
+
+		if (visibleRank <= 29u)
+		{
+			return g_rankedOverlayTuning.midRankColor;
+		}
+
+		if (visibleRank <= 35u)
+		{
+			return g_rankedOverlayTuning.highRankColor;
+		}
+
+		return g_rankedOverlayTuning.leaderRankColor;
 	}
 
 	int32_t HalvedRankedLpDelta(uint32_t rankGap)
@@ -3007,32 +3051,26 @@ namespace
 			}
 		}
 
-		const ImGuiTableFlags ladderTableFlags =
-			ImGuiTableFlags_Resizable |
-			ImGuiTableFlags_BordersInnerV |
-			ImGuiTableFlags_BordersInnerH |
-			ImGuiTableFlags_RowBg;
-		if (!ImGui::BeginTable("ranked_ladder_columns", 4, ladderTableFlags))
-		{
-			ImGui::End();
-			return;
-		}
-		ImGui::TableSetupColumn(L("Rank").c_str());
-		ImGui::TableSetupColumn(L("LP").c_str());
-		ImGui::TableSetupColumn(L("Next").c_str());
-		ImGui::TableSetupColumn(L("Players").c_str());
-		ImGui::TableHeadersRow();
+		ImGui::Columns(4, "ranked_ladder_columns", true);
+		ImGui::TextUnformatted(L("Rank").c_str());
+		ImGui::NextColumn();
+		ImGui::TextUnformatted(L("LP").c_str());
+		ImGui::NextColumn();
+		ImGui::TextUnformatted(L("Next").c_str());
+		ImGui::NextColumn();
+		ImGui::TextUnformatted(L("Players").c_str());
+		ImGui::NextColumn();
+		ImGui::Separator();
 
-		ImGui::TableNextRow();
-		ImGui::TableSetColumnIndex(0);
 		ImGui::TextUnformatted("AUTH");
+		ImGui::NextColumn();
 		ImGui::PushStyleColor(ImGuiCol_Text, GetRankedThresholdColor());
-		ImGui::TableSetColumnIndex(1);
 		ImGui::TextUnformatted("0 LP");
-		ImGui::TableSetColumnIndex(2);
+		ImGui::NextColumn();
 		ImGui::TextUnformatted("LV1");
-		ImGui::TableSetColumnIndex(3);
+		ImGui::NextColumn();
 		ImGui::TextUnformatted(L("Ignored").c_str());
+		ImGui::NextColumn();
 		ImGui::PopStyleColor();
 
 		constexpr uint32_t rankCount = static_cast<uint32_t>(sizeof(kRankedLpBoundsTable) / sizeof(kRankedLpBoundsTable[0]));
@@ -3044,25 +3082,22 @@ namespace
 			const uint32_t requiredLp = GetCumulativeRankedLpBase(internalRank);
 			const uint32_t nextLp = requiredLp + GetRankedLpSpan(internalRank);
 
-			ImGui::TableNextRow();
-			ImGui::TableSetColumnIndex(0);
 			ImGui::PushStyleColor(ImGuiCol_Text, rankColor);
 			ImGui::TextUnformatted(rankLabel.c_str());
 			ImGui::PopStyleColor();
+			ImGui::NextColumn();
 
 			char lpBuffer[32] = {};
 			std::snprintf(lpBuffer, sizeof(lpBuffer), "%u LP", static_cast<unsigned int>(requiredLp));
-			ImGui::TableSetColumnIndex(1);
 			ImGui::PushStyleColor(ImGuiCol_Text, GetRankedThresholdColor());
 			ImGui::TextUnformatted(lpBuffer);
+			ImGui::NextColumn();
 
 			char nextBuffer[32] = {};
 			std::snprintf(nextBuffer, sizeof(nextBuffer), "%u LP", static_cast<unsigned int>(nextLp));
-			ImGui::TableSetColumnIndex(2);
 			ImGui::TextUnformatted(nextBuffer);
+			ImGui::NextColumn();
 			ImGui::PopStyleColor();
-
-			ImGui::TableSetColumnIndex(3);
 
 			uint32_t populationCount = 0u;
 			float populationPercent = 0.0f;
@@ -3079,9 +3114,10 @@ namespace
 			{
 				ImGui::TextUnformatted(populationLoading ? L("Loading").c_str() : "--");
 			}
+			ImGui::NextColumn();
 		}
 
-		ImGui::EndTable();
+		ImGui::Columns(1);
 		ImGui::End();
 	}
 
@@ -3958,11 +3994,31 @@ namespace
 		g_rankedUploadObservation.startedAtMs = GetTickCount64();
 		g_rankedUploadObservation.attemptedCharacterId = attemptedCharacterId;
 		g_rankedUploadObservation.uploadedScore = uploadedScore;
-		bool capturedAny = TryCaptureAllRankedDisplayStates(
-			&g_rankedUploadObservation.baselineStates,
-			&g_rankedUploadObservation.hasBaseline);
+		bool capturedAny = false;
+		if (attemptedCharacterId < g_rankedUploadObservation.baselineStates.size())
+		{
+			RankedProgressDisplayState state{};
+			if (TryBuildDisplayStateForCharacter(attemptedCharacterId, nullptr, &state) && state.valid)
+			{
+				g_rankedUploadObservation.baselineStates[attemptedCharacterId] = state;
+				g_rankedUploadObservation.hasBaseline[attemptedCharacterId] = 1;
+				capturedAny = true;
+			}
+		}
+		else
+		{
+			capturedAny = TryCaptureAllRankedDisplayStates(
+				&g_rankedUploadObservation.baselineStates,
+				&g_rankedUploadObservation.hasBaseline);
+		}
 		uint32_t cachedBaselineCount = 0;
-		for (uint32_t characterId = 0; characterId < g_lastKnownRankDisplayByCharacter.size(); ++characterId)
+		const uint32_t cacheStart = attemptedCharacterId < g_lastKnownRankDisplayByCharacter.size()
+			? attemptedCharacterId
+			: 0u;
+		const uint32_t cacheEnd = attemptedCharacterId < g_lastKnownRankDisplayByCharacter.size()
+			? attemptedCharacterId + 1u
+			: static_cast<uint32_t>(g_lastKnownRankDisplayByCharacter.size());
+		for (uint32_t characterId = cacheStart; characterId < cacheEnd; ++characterId)
 		{
 			RankedProgressDisplayState cachedState{};
 			if (TryGetCachedRankedDisplayState(characterId, &cachedState) && cachedState.valid)
@@ -4048,7 +4104,22 @@ namespace
 
 		std::array<RankedProgressDisplayState, 64> currentStates{};
 		std::array<uint8_t, 64> hasCurrentState{};
-		if (!TryCaptureAllRankedDisplayStates(&currentStates, &hasCurrentState))
+		bool capturedCurrent = false;
+		if (g_rankedUploadObservation.attemptedCharacterId < currentStates.size())
+		{
+			RankedProgressDisplayState state{};
+			if (TryBuildDisplayStateForCharacter(g_rankedUploadObservation.attemptedCharacterId, nullptr, &state) && state.valid)
+			{
+				currentStates[g_rankedUploadObservation.attemptedCharacterId] = state;
+				hasCurrentState[g_rankedUploadObservation.attemptedCharacterId] = 1;
+				capturedCurrent = true;
+			}
+		}
+		else
+		{
+			capturedCurrent = TryCaptureAllRankedDisplayStates(&currentStates, &hasCurrentState);
+		}
+		if (!capturedCurrent)
 		{
 			return;
 		}
@@ -4698,91 +4769,6 @@ namespace
 	}
 }
 
-uint32_t InternalRankToVisibleRank(uint32_t internalRank, bool isUnranked)
-{
-	if (isUnranked)
-	{
-		return 0;
-	}
-
-	return internalRank + 1u;
-}
-
-std::string FormatVisibleRankLabel(uint32_t visibleRank, bool isUnranked)
-{
-	const char* const specialName = GetRankDisplayName(visibleRank, isUnranked);
-	if (specialName)
-	{
-		return specialName;
-	}
-
-	if (visibleRank >= 1u && visibleRank <= 35u)
-	{
-		char buffer[32] = {};
-		std::snprintf(buffer, sizeof(buffer), "LV%u", static_cast<unsigned int>(visibleRank));
-		return std::string(buffer);
-	}
-
-	char buffer[32] = {};
-	std::snprintf(buffer, sizeof(buffer), "SkillRank_%u", static_cast<unsigned int>(visibleRank));
-	return std::string(buffer);
-}
-
-ImVec4 GetVisibleRankColor(uint32_t visibleRank, bool isUnranked)
-{
-	if (isUnranked || visibleRank == 0u)
-	{
-		return g_rankedOverlayTuning.authColor;
-	}
-
-	if (visibleRank <= 19u)
-	{
-		return g_rankedOverlayTuning.lowRankColor;
-	}
-
-	if (visibleRank <= 29u)
-	{
-		return g_rankedOverlayTuning.midRankColor;
-	}
-
-	if (visibleRank <= 35u)
-	{
-		return g_rankedOverlayTuning.highRankColor;
-	}
-
-	return g_rankedOverlayTuning.leaderRankColor;
-}
-
-bool ComputeTotalLpFromPackedScore(uint32_t internalRank, uint32_t packedSubscore, uint32_t* outTotalLp)
-{
-	if (!outTotalLp)
-	{
-		return false;
-	}
-
-	uint32_t lowerBound = 0;
-	uint32_t upperBound = 0;
-	if (!TryGetRankedLpBounds(internalRank, &lowerBound, &upperBound, nullptr, nullptr) || upperBound <= lowerBound)
-	{
-		return false;
-	}
-
-	const uint32_t cumulativeBase = GetCumulativeRankedLpBase(internalRank);
-	const uint32_t rankSpan = upperBound - lowerBound;
-	uint32_t rankProgressLp = 0u;
-	if (packedSubscore > lowerBound)
-	{
-		rankProgressLp = packedSubscore - lowerBound;
-		if (rankProgressLp > rankSpan)
-		{
-			rankProgressLp = rankSpan;
-		}
-	}
-
-	*outTotalLp = cumulativeBase + rankProgressLp;
-	return true;
-}
-
 void NoteRankedUploadAttempt(int32_t characterId, int32_t score, const char* leaderboardName)
 {
 	uint32_t resolvedCharacterId = (characterId >= 0 && characterId < 64)
@@ -5185,15 +5171,15 @@ namespace
 		}
 
 		ImGui::PushStyleColor(ImGuiCol_Text, mainColor);
-		ImGui::PushFont(NULL, ImGui::GetStyle().FontSizeBase * 2.7f);
+		ImGui::SetWindowFontScale(2.7f);
 		DrawCenteredBoldText(drawList, mainText, ImGui::GetColorU32(mainColor), ImGui::GetContentRegionAvail().x);
-		ImGui::PopFont();
+		ImGui::SetWindowFontScale(1.0f);
 		ImGui::PopStyleColor();
 
 		if (outcome.promotionCounterDelta != 0 || outcome.demotionCounterDelta != 0)
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, g_rankedOverlayTuning.predictionReasonColor);
-			ImGui::PushFont(NULL, ImGui::GetStyle().FontSizeBase * 0.82f);
+			ImGui::SetWindowFontScale(0.82f);
 			if (outcome.promotionCounterDelta != 0)
 			{
 				char counterText[64] = {};
@@ -5216,7 +5202,7 @@ namespace
 				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + CenteredTextOffsetX(ImGui::GetContentRegionAvail().x, counterText));
 				ImGui::TextUnformatted(counterText);
 			}
-			ImGui::PopFont();
+			ImGui::SetWindowFontScale(1.0f);
 			ImGui::PopStyleColor();
 		}
 
@@ -5349,8 +5335,7 @@ namespace
 		bool rankedEntryActive,
 		bool inMatch,
 		bool rankedRematchScreen,
-		bool sawState58ThisVictoryCycle,
-		bool forceOpponentRankRefresh)
+		bool sawState58ThisVictoryCycle)
 	{
 		static uint64_t s_lastPredictionOpponentSteamId = 0;
 		static uint32_t s_lastPredictionOpponentCharacterId = kInvalidRankedCharacterId;
@@ -5435,7 +5420,7 @@ namespace
 		const bool hasOpponentCharacter = opponentCharacterId < kRankAllCharacterId;
 		if (hasOpponentSteamId && hasOpponentCharacter)
 		{
-			g_rankedOpponentLookup.Tick(opponentSteamId, opponentCharacterId, rankedRematchScreen || forceOpponentRankRefresh);
+			g_rankedOpponentLookup.Tick(opponentSteamId, opponentCharacterId, rankedRematchScreen);
 		}
 		LogRankedPredictionVisibility("draw", gameState, networkState, victoryStep, rankedEntryActive, inMatch, rankedRematchScreen, sawState58ThisVictoryCycle, opponentSteamId, opponentCharacterId);
 		RankedOpponentInfo opponent{};
@@ -5550,10 +5535,6 @@ void DrawRankedMatchesMainMenuSection()
 	if ((actions & RankedUi::RankedMainMenuAction_OpenOnline) != 0u)
 	{
 		WindowManager::GetInstance().GetWindowContainer()->GetWindow(WindowType_Room)->ToggleOpen();
-	}
-	if ((actions & RankedUi::RankedMainMenuAction_OpenLeaderboard) != 0u)
-	{
-		WindowManager::GetInstance().GetWindowContainer()->GetWindow(WindowType_RankedLeaderboard)->Open();
 	}
 }
 
@@ -5786,7 +5767,7 @@ void DrawRankedProgressOverlayStandalone()
 		}
 	}
 
-	if (!IsRankedDisplayValidForOverlay(baseDisplay))
+	if (!IsRankedDisplayReadyForOverlay(baseDisplay))
 	{
 		DrawRankedGlobalDialogs();
 		return;
@@ -5817,7 +5798,7 @@ void DrawRankedProgressOverlayStandalone()
 	}
 
 	ImGui::SetWindowSize(ImVec2(g_rankedOverlayTuning.overlayWidth, 118.0f), ImGuiCond_FirstUseEver);
-	if (ImGui::BeginPopupContextWindow("ranked_progress_context", ImGuiPopupFlags_MouseButtonRight))
+	if (ImGui::BeginPopupContextWindow("ranked_progress_context", 1, true))
 	{
 		if (ImGui::MenuItem(L("Ranked ladder").c_str()))
 		{
@@ -5876,7 +5857,7 @@ void DrawRankedProgressOverlayStandalone()
 	float demotionDeltaAlpha = 0.0f;
 	uint32_t animationPhase = 0;
 	BuildAnimatedDisplayState(baseDisplay, &renderedDisplay, &renderedDelta, &deltaAlpha, &animationPhase);
-	if (!IsRankedDisplayValidForOverlay(renderedDisplay))
+	if (!IsRankedDisplayReadyForOverlay(renderedDisplay))
 	{
 		ImGui::End();
 		ImGui::PopStyleVar();
@@ -5909,8 +5890,7 @@ void DrawRankedProgressOverlayStandalone()
 	const std::string characterName = getCharacterNameByIndexA(static_cast<int>(renderedDisplay.characterId));
 	const std::string rankLabel = FormatVisibleRankLabel(renderedDisplay.visibleRank, renderedDisplay.isUnranked);
 	const ImVec4 rankColor = GetVisibleRankColor(renderedDisplay.visibleRank, renderedDisplay.isUnranked);
-	const ImU32 rankColorU32 = ImGui::ColorConvertFloat4ToU32(
-		ImVec4(rankColor.x, rankColor.y, rankColor.z, rankColor.w * windowAlpha));
+	const ImU32 rankColorU32 = ImGui::ColorConvertFloat4ToU32(rankColor);
 	const ImVec2 startPos = ImGui::GetCursorScreenPos();
 	ImDrawList* const drawList = ImGui::GetWindowDrawList();
 	const uint32_t matches = hasStatsSnapshot ? statsSnapshot.totalPoints : 0u;
@@ -6000,17 +5980,15 @@ void DrawRankedProgressOverlayStandalone()
 	const float barWidth = availableBarWidth > 320.0f ? availableBarWidth : 320.0f;
 	const ImVec2 barPos = ImGui::GetCursorScreenPos();
 	const ImVec2 barSize(barWidth, g_rankedOverlayTuning.barHeight);
-	const ImU32 bgColor = ImGui::ColorConvertFloat4ToU32(ImVec4(0.16f, 0.17f, 0.19f, 0.96f * windowAlpha));
-	const ImU32 borderColor = ImGui::ColorConvertFloat4ToU32(ImVec4(0.36f, 0.37f, 0.41f, 1.0f * windowAlpha));
+	const ImU32 bgColor = ImGui::ColorConvertFloat4ToU32(ImVec4(0.16f, 0.17f, 0.19f, 0.96f));
+	const ImU32 borderColor = ImGui::ColorConvertFloat4ToU32(ImVec4(0.36f, 0.37f, 0.41f, 1.0f));
 	drawList->AddRectFilled(barPos, ImVec2(barPos.x + barSize.x, barPos.y + barSize.y), bgColor, 5.0f);
 	const float fillWidth = barSize.x * renderedDisplay.progress;
 	if (fillWidth > 0.0f)
 	{
 		drawList->AddRectFilled(barPos, ImVec2(barPos.x + fillWidth, barPos.y + barSize.y), rankColorU32, 5.0f);
 	}
-	// Explicit flags: a bare 0 here meant "round no corners" before ImGui 1.82 and means
-	// "round all corners" now, so spell out the intent that matches the rounded fill above.
-	drawList->AddRect(barPos, ImVec2(barPos.x + barSize.x, barPos.y + barSize.y), borderColor, 5.0f, ImDrawFlags_RoundCornersAll, 1.0f);
+	drawList->AddRect(barPos, ImVec2(barPos.x + barSize.x, barPos.y + barSize.y), borderColor, 5.0f, 0, 1.0f);
 	ImGui::Dummy(ImVec2(barSize.x, barSize.y + 6.0f));
 
 	const float availableRowWidth = ImGui::GetContentRegionAvail().x;
@@ -6136,12 +6114,6 @@ void DrawRankedProgressOverlayStandalone()
 		Settings::changeSetting("ShowRankedProgress", "0");
 		g_manualRankedProgressOpen = false;
 	}
-	// Force a fresh opponent leaderboard lookup once per finished match (not just at
-	// end-of-set), so a mid-set rank-up is reflected instead of showing the stale
-	// pre-set rank for the rest of the set. RequestOpponentEntry() still throttles
-	// this to one Steam call every 5s, so this can't reintroduce per-frame lag.
-	const bool matchUploadCompletedThisCycle = inPostMatchRematch &&
-		g_rankedUploadCompletionSerial > g_uploadSerialAtMatchEntry;
-	DrawRankedPredictionWindow(renderedDisplay, currentGameState, networkState, victoryStep, rankedEntryActive, inMatch, rankedRematchScreen, s_sawState58ThisVictoryCycle, matchUploadCompletedThisCycle);
+	DrawRankedPredictionWindow(renderedDisplay, currentGameState, networkState, victoryStep, rankedEntryActive, inMatch, rankedRematchScreen, s_sawState58ThisVictoryCycle);
 	DrawRankedGlobalDialogs();
 }

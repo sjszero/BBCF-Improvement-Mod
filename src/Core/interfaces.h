@@ -104,7 +104,6 @@ struct gameProc_t
 };
 struct modValues_t {
 	bool enableForeignPalettes = true; 
-	int allowPaletteDownloads = -1;
 	int save_states_save_keycode;
 	int save_states_load_keycode;
 	int replay_takeover_load_keycode;

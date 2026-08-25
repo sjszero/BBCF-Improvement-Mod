@@ -3,12 +3,9 @@
 #include "Core/interfaces.h"
 #include "Core/logger.h"
 #include "Game/gamestates.h"
-#include "Game/NetworkStallDiagnostics.h"
 #include "Game/Playbacks/UnlimitedPlaybackManager.h"
 #include "Game/ReplayFiles/ReplayFileManager.h"
-#include "Network/RankedListConnectionFilter.h"
 #include "Overlay/Window/PaletteEditorWindow.h"
-#include "Overlay/Window/Ranked/RankedListFilterWindow.h"
 #include "Overlay/Window/ReplayRewindWindow.h"
 #include "Overlay/WindowContainer/WindowType.h"
 #include "Overlay/WindowManager.h"
@@ -22,8 +19,6 @@ void MatchState::OnMatchInit()
 	}
 
 	LOG(2, "MatchState::OnMatchInit\n");
-
-	RankedListConnectionFilter::GetInstance().OnMatchStarted();
 
 	g_interfaces.pPaletteManager->LoadPaletteSettingsFile();
 	g_interfaces.pPaletteManager->OnMatchInit(g_interfaces.player1, g_interfaces.player2);
@@ -106,25 +101,9 @@ void MatchState::OnUpdate()
 {
 	LOG(7, "MatchState::OnUpdate\n");
 
-	NetworkStallDiagnostics::OnUpdate();
-
-	if (WindowManager::GetInstance().IsInitialized())
-	{
-		RankedListFilterWindow* const filterWindow = WindowManager::GetInstance().GetWindowContainer()
-			->GetWindow<RankedListFilterWindow>(WindowType_RankedListFilter);
-		if (filterWindow != nullptr)
-		{
-			filterWindow->UpdateAutoVisibility();
-		}
-	}
-
 	g_interfaces.pPaletteManager->OnUpdate(
 		g_interfaces.player1.GetPalHandle(),
 		g_interfaces.player2.GetPalHandle()
-	);
-	g_interfaces.pPaletteManager->ClearPlatinumItemPaletteLink(
-		g_interfaces.player1,
-		g_interfaces.player2
 	);
 	if (g_interfaces.pOnlinePaletteManager)
 	{

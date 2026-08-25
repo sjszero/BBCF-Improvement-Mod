@@ -3,7 +3,6 @@
 #include "Core/info.h"
 #include "Core/RuntimePlatform.h"
 #include "Overlay/imgui_utils.h"
-#include "Overlay/Widget/MarkdownRenderer.h"
 #include "imgui_internal.h"
 #include "Updater/GitHubReleaseClient.h"
 #include "Updater/SemVersion.h"
@@ -20,6 +19,76 @@
 
 namespace
 {
+	std::string Trim(const std::string& value)
+	{
+		size_t first = 0;
+		while (first < value.size() && std::isspace(static_cast<unsigned char>(value[first])))
+			++first;
+
+		size_t last = value.size();
+		while (last > first && std::isspace(static_cast<unsigned char>(value[last - 1])))
+			--last;
+
+		return value.substr(first, last - first);
+	}
+
+	bool StartsWith(const std::string& value, const char* prefix)
+	{
+		const size_t prefixLen = std::strlen(prefix);
+		return value.size() >= prefixLen && value.compare(0, prefixLen, prefix) == 0;
+	}
+
+	std::vector<std::string> SplitLines(const std::string& text)
+	{
+		std::vector<std::string> lines;
+		std::stringstream stream(text);
+		std::string line;
+		while (std::getline(stream, line))
+		{
+			if (!line.empty() && line[line.size() - 1] == '\r')
+				line.erase(line.size() - 1);
+			lines.push_back(line);
+		}
+		if (text.empty())
+			lines.push_back(std::string());
+		return lines;
+	}
+
+	std::string StripInlineMarkdown(const std::string& text)
+	{
+		std::string out;
+		out.reserve(text.size());
+		bool inLinkText = false;
+		bool skippingUrl = false;
+
+		for (size_t i = 0; i < text.size(); ++i)
+		{
+			const char c = text[i];
+			if (skippingUrl)
+			{
+				if (c == ')')
+					skippingUrl = false;
+				continue;
+			}
+			if (c == '[')
+			{
+				inLinkText = true;
+				continue;
+			}
+			if (inLinkText && c == ']' && i + 1 < text.size() && text[i + 1] == '(')
+			{
+				inLinkText = false;
+				skippingUrl = true;
+				++i;
+				continue;
+			}
+			if (c == '*' || c == '_' || c == '`' || c == '~')
+				continue;
+			out.push_back(c);
+		}
+
+		return Trim(out);
+	}
 
 	std::string FormatGitHubDate(const std::string& value)
 	{
@@ -40,6 +109,85 @@ namespace
 		return buffer;
 	}
 
+	void DrawMarkdownText(const std::string& markdown)
+	{
+		const std::vector<std::string> lines = SplitLines(markdown);
+		bool inCodeBlock = false;
+		for (size_t i = 0; i < lines.size(); ++i)
+		{
+			std::string line = lines[i];
+			std::string trimmed = Trim(line);
+
+			if (StartsWith(trimmed, "```"))
+			{
+				inCodeBlock = !inCodeBlock;
+				if (!inCodeBlock)
+					ImGui::Spacing();
+				continue;
+			}
+
+			if (trimmed.empty())
+			{
+				ImGui::Spacing();
+				continue;
+			}
+
+			if (inCodeBlock)
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.78f, 0.86f, 0.95f, 1.0f));
+				ImGui::TextWrapped("%s", line.c_str());
+				ImGui::PopStyleColor();
+				continue;
+			}
+
+			int headingLevel = 0;
+			while (headingLevel < static_cast<int>(trimmed.size()) && headingLevel < 6 && trimmed[headingLevel] == '#')
+				++headingLevel;
+			if (headingLevel > 0 && headingLevel < static_cast<int>(trimmed.size()) && trimmed[headingLevel] == ' ')
+			{
+				ImGui::Spacing();
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.95f, 1.0f, 1.0f));
+				ImGui::TextWrapped("%s", StripInlineMarkdown(trimmed.substr(headingLevel + 1)).c_str());
+				ImGui::PopStyleColor();
+				ImGui::Separator();
+				continue;
+			}
+
+			if (trimmed == "---" || trimmed == "***")
+			{
+				ImGui::Separator();
+				continue;
+			}
+
+			if (StartsWith(trimmed, ">"))
+			{
+				ImGui::Indent(8.0f);
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.72f, 0.72f, 0.76f, 1.0f));
+				ImGui::TextWrapped("%s", StripInlineMarkdown(Trim(trimmed.substr(1))).c_str());
+				ImGui::PopStyleColor();
+				ImGui::Unindent(8.0f);
+				continue;
+			}
+
+			const bool unordered = StartsWith(trimmed, "- ") || StartsWith(trimmed, "* ");
+			const bool ordered =
+				trimmed.size() > 3 &&
+				std::isdigit(static_cast<unsigned char>(trimmed[0])) &&
+				trimmed[1] == '.' &&
+				trimmed[2] == ' ';
+			if (unordered || ordered)
+			{
+				ImGui::Bullet();
+				ImGui::SameLine();
+				ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x);
+				ImGui::TextWrapped("%s", StripInlineMarkdown(trimmed.substr(unordered ? 2 : 3)).c_str());
+				ImGui::PopTextWrapPos();
+				continue;
+			}
+
+			ImGui::TextWrapped("%s", StripInlineMarkdown(trimmed).c_str());
+		}
+	}
 
 	bool HasManifestAsset(const Updater::GitHubRelease& release)
 	{
@@ -105,11 +253,7 @@ void ReleaseCheckerWindow::FetchThread()
 	Updater::GitHubReleaseClient client;
 	std::vector<Updater::GitHubRelease> releases;
 	std::string error;
-	EnterCriticalSection(&m_lock);
-	const bool forceRefresh = m_forceRefresh;
-	LeaveCriticalSection(&m_lock);
-
-	const bool ok = client.FetchAllReleases(releases, error, forceRefresh);
+	const bool ok = client.FetchAllReleases(releases, error);
 
 	EnterCriticalSection(&m_lock);
 	if (ok)
@@ -125,10 +269,9 @@ void ReleaseCheckerWindow::FetchThread()
 	LeaveCriticalSection(&m_lock);
 }
 
-void ReleaseCheckerWindow::StartFetch(bool forceRefresh)
+void ReleaseCheckerWindow::StartFetch()
 {
 	EnterCriticalSection(&m_lock);
-	m_forceRefresh = forceRefresh;
 	m_fetchState = FetchState::Fetching;
 	m_releases.clear();
 	m_fetchError.clear();
@@ -314,13 +457,15 @@ void ReleaseCheckerWindow::Draw()
 	const bool isFetching = (fetchState == FetchState::Fetching);
 	if (isFetching)
 	{
-		ImGui::BeginDisabled();
+		ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
 	}
 	if (ImGui::Button("Refresh", buttonSize))
-		StartFetch(true);
+		StartFetch();
 	if (isFetching)
 	{
-		ImGui::EndDisabled();
+		ImGui::PopStyleVar();
+		ImGui::PopItemFlag();
 	}
 
 	ImGui::SameLine();
@@ -404,17 +549,14 @@ void ReleaseCheckerWindow::DrawRelease(const Updater::GitHubRelease& release, si
 		const ImVec4 titleColor = ImVec4(0.98f, 0.98f, 1.0f, 1.0f);
 		const ImVec4 titleHoverColor = ImVec4(0.76f, 0.76f, 0.80f, 1.0f);
 
-		// PushFont(NULL, size) rather than SetWindowFontScale: the latter is discouraged since
-		// 1.92 and scales a baked bitmap, where this rasterizes at the real size.
-		ImGui::PushFont(NULL, ImGui::GetStyle().FontSizeBase * 1.12f);
-		const ImVec2 titleSize = ImGui::CalcTextSizeBold(displayTitle.c_str());
+		ImGui::SetWindowFontScale(1.12f);
+		const ImVec2 titleSize = ImGui::CalcTextSize(displayTitle.c_str());
 		ImGui::AlignItemHorizontalCenter(titleSize.x);
 		const ImVec2 pos = ImGui::GetCursorScreenPos();
 		ImGui::InvisibleButton(("##titlelink_" + release.tagName).c_str(), titleSize);
 		const bool hovered = ImGui::IsItemHovered();
 		const bool clicked = ImGui::IsItemClicked();
-		ImGui::AddTextBold(
-			ImGui::GetWindowDrawList(),
+		ImGui::GetWindowDrawList()->AddText(
 			pos,
 			ImGui::ColorConvertFloat4ToU32(hovered ? titleHoverColor : titleColor),
 			displayTitle.c_str());
@@ -425,7 +567,7 @@ void ReleaseCheckerWindow::DrawRelease(const Updater::GitHubRelease& release, si
 				ImVec2(pos.x + titleSize.x, pos.y + titleSize.y),
 				ImGui::ColorConvertFloat4ToU32(titleHoverColor));
 		}
-		ImGui::PopFont();
+		ImGui::SetWindowFontScale(1.0f);
 		if (clicked && !release.htmlUrl.empty())
 		{
 			const std::wstring url(release.htmlUrl.begin(), release.htmlUrl.end());
@@ -453,7 +595,7 @@ void ReleaseCheckerWindow::DrawRelease(const Updater::GitHubRelease& release, si
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
-		ImGuiMarkdown::Render(release.body);
+		DrawMarkdownText(release.body);
 	}
 
 	ImGui::Spacing();
@@ -487,7 +629,8 @@ void ReleaseCheckerWindow::DrawRelease(const Updater::GitHubRelease& release, si
 		// Install button (disabled when coordinator is busy)
 		if (coordinatorBusy)
 		{
-			ImGui::BeginDisabled();
+			ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
+			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
 		}
 		if (ImGui::Button(("Install##" + release.tagName).c_str(), actionBtnSize))
 		{
@@ -498,7 +641,8 @@ void ReleaseCheckerWindow::DrawRelease(const Updater::GitHubRelease& release, si
 		}
 		if (coordinatorBusy)
 		{
-			ImGui::EndDisabled();
+			ImGui::PopStyleVar();
+			ImGui::PopItemFlag();
 		}
 	}
 	else
