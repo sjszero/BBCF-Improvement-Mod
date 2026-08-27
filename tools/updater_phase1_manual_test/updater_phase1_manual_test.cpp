@@ -53,13 +53,17 @@ namespace
 		manifest.channel = "stable";
 		manifest.os = "win";
 		manifest.arch = "x86";
-		manifest.assetName = "BBCF.IM.win-x86.v5.0.zip";
+		manifest.assetName = "BBCF-IM-v5.0.zip";
 		manifest.sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 		manifest.entryDll = "dinput8.dll";
 		manifest.minimumSupportedVersion = "v3.110";
 
 		std::string error;
-		Check(Updater::ValidateUpdateManifest(manifest, error), "valid manifest accepted");
+		Check(Updater::ValidateUpdateManifest(manifest, error), "valid short-name manifest accepted");
+
+		Updater::UpdateManifest legacyAsset = manifest;
+		legacyAsset.assetName = "BBCF.IM.win-x86.v5.0.zip";
+		Check(Updater::ValidateUpdateManifest(legacyAsset, error), "legacy asset name remains accepted");
 
 		Updater::UpdateManifest badAsset = manifest;
 		badAsset.assetName = "BBCF.IM.win-x64.v5.0.zip";

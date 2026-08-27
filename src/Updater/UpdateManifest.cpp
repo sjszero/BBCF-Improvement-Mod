@@ -52,14 +52,20 @@ namespace Updater
 
 	bool IsValidStableAssetName(const std::string& assetName)
 	{
-		const std::string prefix = "BBCF.IM.win-x86.v";
+		const std::string currentPrefix = "BBCF-IM-v";
+		const std::string legacyPrefix = "BBCF.IM.win-x86.v";
 		const std::string suffix = ".zip";
-		if (!StartsWith(assetName, prefix) || !EndsWith(assetName, suffix))
+		const std::string* prefix = nullptr;
+		if (StartsWith(assetName, currentPrefix))
+			prefix = &currentPrefix;
+		else if (StartsWith(assetName, legacyPrefix))
+			prefix = &legacyPrefix;
+		if (!prefix || !EndsWith(assetName, suffix))
 			return false;
 
 		const std::string versionText = assetName.substr(
-			prefix.size(),
-			assetName.size() - prefix.size() - suffix.size());
+			prefix->size(),
+			assetName.size() - prefix->size() - suffix.size());
 
 		SemVersion version;
 		return TryParseSemVersion(versionText, version);

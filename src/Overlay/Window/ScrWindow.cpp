@@ -1375,7 +1375,7 @@ void ScrWindow::DrawPlaybackSection() {
 
 void ScrWindow::DrawSaveStates() {
     static SnapshotApparatus* snap_apparatus = nullptr;
-    
+
     if (!ImGui::CollapsingHeader("Save states"))
         return;
     if (*(bbcf_base_adress + 0x8F7758) == 0) {
@@ -1449,6 +1449,8 @@ void ScrWindow::DrawSaveStates() {
                     this->is_setup_time_running = false;
                 }
             }
+
+            ImGui::TextDisabled("Open TAS mode from the F1 main window.");
         }
         else {
             ImGui::Text("You must be in a mode where state can be saved");

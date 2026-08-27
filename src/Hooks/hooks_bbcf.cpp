@@ -19,6 +19,7 @@
 #include "Web/update_check.h"
 #include "Game/ReplayFiles/ReplayFileManager.h"
 #include "Game/Playbacks/UnlimitedPlaybackManager.h"
+#include "Game/TasManager.h"
 #include "Game/ReplayTakeover/ReplayTakeoverFeatureFlags.h"
 #include <array>
 #include <cstring>
@@ -8894,8 +8895,9 @@ void __declspec(naked)GameUpdatePause()
 DWORD GetFrameCounterJmpBackAddr = 0;
 void __declspec(naked)GetFrameCounter()
 {
+	__asm pushfd
+	__asm pushad
 	LOG_ASM(7, "GetFrameCounter\n");
-
 	_asm
 	{
 		push eax
@@ -8905,12 +8907,12 @@ void __declspec(naked)GetFrameCounter()
 		pop eax
 	}
 
-	__asm pushad
 	if (IsControllerHooksRuntimeAllowed())
 	{
 		ControllerOverrideManager::GetInstance().TickAutoRefresh();
 	}
 	UnlimitedPlaybackManager::Instance().Tick();
+	TasManager::Instance().Update();
 	RankedProbeTickFrameState();
 	RankedAutomationHarness::Tick();
 #if BBCF_ENABLE_UNLIMITED_REPLAY_TAKEOVER
@@ -8919,6 +8921,7 @@ void __declspec(naked)GetFrameCounter()
 	}
 #endif
 	__asm popad
+	__asm popfd
 
 	_asm
 	{

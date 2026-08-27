@@ -19,6 +19,7 @@
 #include "Overlay/Window/UnlimitedPlaybackWindow.h"
 #include "Overlay/Window/NetworkSquareColorWindow.h"
 #include "Overlay/Window/ReleaseCheckerWindow.h"
+#include "Overlay/Window/TasWindow.h"
 #include "Game/ReplayTakeover/ReplayTakeoverFeatureFlags.h"
 #if BBCF_ENABLE_UNLIMITED_REPLAY_TAKEOVER
 #include "Overlay/Window/UnlimitedReplayTakeoverWindow.h"
@@ -98,7 +99,9 @@ WindowContainer::WindowContainer()
         }
 #endif
 
+        AddWindow(WindowType_Tas,
+                new TasWindow("TAS mode##Tas", true, *this, ImGuiWindowFlags_AlwaysAutoResize));
+
         AddWindow(WindowType_ReleaseChecker,
                 new ReleaseCheckerWindow("Releases##checker", true, ImGuiWindowFlags_NoCollapse));
 }
-

@@ -36,7 +36,7 @@ $outRoot = if ([string]::IsNullOrWhiteSpace($OutputDir)) {
     if ([System.IO.Path]::IsPathRooted($OutputDir)) { $OutputDir } else { Join-Path $repoRoot $OutputDir }
 }
 $stage = Join-Path $repoRoot "build\release_package_stage\$tagWithV"
-$zipName = "BBCF.IM.win-x86.$tagWithV.zip"
+$zipName = "BBCF-IM-$tagWithV.zip"
 $zipPath = Join-Path $outRoot $zipName
 $manifestPath = Join-Path $outRoot "update-manifest.json"
 

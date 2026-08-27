@@ -53,3 +53,5 @@ InputState GetLastObservedBattleInput(uint32_t playerIndex);
 
 // Returns the last value that was written back into the game (after overrides).
 InputState GetLastAppliedBattleInput(uint32_t playerIndex);
+uint16_t GetLastObservedBattleInputPacked(uint32_t playerIndex);
+uint16_t GetLastAppliedBattleInputPacked(uint32_t playerIndex);
