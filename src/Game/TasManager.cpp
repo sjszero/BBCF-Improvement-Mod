@@ -12,8 +12,9 @@
 
 #include <cctype>
 #include <fstream>
+#include <limits>
 namespace {
-constexpr size_t kMaxTasFrames = 1200;
+// TAS Movie length is not artificially capped.
 constexpr unsigned int kPresentationLeadInFrames = 60;
 constexpr unsigned int kPresentationLeadOutFrames = 240;
 constexpr const char* kTasMoviePath = "tas_movie.txt";
@@ -353,11 +354,12 @@ void TasManager::EditAndAdvanceFrames(int count) {
         return;
     }
 
-    const size_t end = m_playhead + static_cast<size_t>(count);
-    if (end > kMaxTasFrames) {
-        SetError("Movie is too long.");
+    const size_t frameCount = static_cast<size_t>(count);
+    if (frameCount > (std::numeric_limits<size_t>::max)() - m_playhead) {
+        SetError("Movie frame count exceeds the addressable size limit.");
         return;
     }
+    const size_t end = m_playhead + frameCount;
     if (m_playhead < m_movie.size()) {
         m_movie.resize(m_playhead);
     }
@@ -549,7 +551,7 @@ bool TasManager::ImportMovie() {
     size_t declaredCount = 0;
     if (!std::getline(input, header) || header != kTasMovieHeader ||
         !(input >> framesLabel >> declaredCount) || framesLabel != "frames" ||
-        declaredCount == 0 || declaredCount > kMaxTasFrames) {
+        declaredCount == 0) {
         SetError("tas_movie.txt has an invalid header or frame count.");
         return false;
     }
@@ -613,7 +615,7 @@ bool TasManager::ParseOne(const std::string& text, std::vector<uint16_t>* out) c
     if (pendingButtons && !out->empty()) {
         out->back() = static_cast<uint16_t>(out->back() + pendingButtons);
     }
-    return !out->empty() && out->size() <= kMaxTasFrames;
+    return !out->empty();
 }
 
 bool TasManager::ParseInputs() {

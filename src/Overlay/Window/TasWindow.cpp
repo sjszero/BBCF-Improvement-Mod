@@ -139,9 +139,8 @@ void TasWindow::Draw() {
     ImGui::InputInt("Frame count##tas_frame_count", &m_frameCount);
     if (m_frameCount < 1) {
         m_frameCount = 1;
-    } else if (m_frameCount > 1200) {
-        m_frameCount = 1200;
     }
+
     ImGui::SameLine();
     if (ImGui::Button("Advance N frames")) {
         if (manager.IsEditingRecording()) {

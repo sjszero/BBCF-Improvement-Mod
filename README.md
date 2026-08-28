@@ -47,7 +47,7 @@ Both input fields use numpad notation:
 - Each direction digit consumes one frame. `66` means forward for two frames, while `656` means forward, neutral, forward.
 - Button letters are attached to the preceding direction frame. For example, `5C` means neutral plus C, `623C` means 6, 2, then 3+C, and `28D` means 2, then 8+D.
 - If the P1 and P2 commands have different lengths, the shorter side is padded with neutral `5` frames.
-- A Movie can contain up to 1200 frames.
+- Movie length is not artificially capped; it is limited only by available memory and the platform's addressable container size.
 - Spaces, commas, and hyphens are accepted as separators in command text.
 - Buttons are represented by `A`, `B`, `C`, and `D`. Multiple buttons can be attached to the same direction frame.
 
@@ -61,7 +61,7 @@ The TAS shortcuts work while the TAS window is active and can be changed in `set
 | `L` | `TasAdvanceKeybind=L` | Advance by the configured `Frame count`. In edit mode, append or re-record those frames from the current movie position. |
 | `J` | `TasRewindKeybind=J` | Rewind by the configured `Frame count`, reload the base state, replay to the target, and truncate later Movie frames. |
 
-The frame count is entered in the TAS window. It is clamped to 1-1200. The shortcuts are especially useful when testing a combo without repeatedly moving the mouse between the input fields and the frame controls. During hidden Presentation playback, `I` stops the playback instead of parsing input; the normal parse action resumes after the TAS UI is visible again.
+The frame count is entered in the TAS window and must be a positive number. Movie length is not artificially capped. The shortcuts are especially useful when testing a combo without repeatedly moving the mouse between the input fields and the frame controls. During hidden Presentation playback, `I` stops the playback instead of parsing input; the normal parse action resumes after the TAS UI is visible again.
 
 ### Creating a Combo
 
