@@ -30,10 +30,10 @@ void TasWindow::Update() {
     if (ImGui::IsKeyPressed(g_modVals.tas_parse_keycode)) {
         manager.SetInputText(m_p1Input, m_p2Input);
     }
-    if (ImGui::IsKeyPressed(g_modVals.tas_rewind_keycode)) {
+    if (!manager.IsPlaybackRunning() && ImGui::IsKeyPressed(g_modVals.tas_rewind_keycode)) {
         manager.RewindFrames(m_frameCount);
     }
-    if (ImGui::IsKeyPressed(g_modVals.tas_advance_keycode)) {
+    if (!manager.IsPlaybackRunning() && ImGui::IsKeyPressed(g_modVals.tas_advance_keycode)) {
         if (manager.IsEditingRecording()) {
             manager.EditAndAdvanceFrames(m_frameCount);
         } else {
@@ -142,7 +142,8 @@ void TasWindow::Draw() {
     }
 
     ImGui::SameLine();
-    if (ImGui::Button("Advance N frames")) {
+    const bool playbackRunning = manager.IsPlaybackRunning();
+    if (ImGui::Button("Advance N frames") && !playbackRunning) {
         if (manager.IsEditingRecording()) {
             manager.EditAndAdvanceFrames(m_frameCount);
         } else {
@@ -150,7 +151,7 @@ void TasWindow::Draw() {
         }
     }
     ImGui::SameLine();
-    if (ImGui::Button("Rewind N frames")) {
+    if (ImGui::Button("Rewind N frames") && !playbackRunning) {
         manager.RewindFrames(m_frameCount);
     }
     ImGui::SameLine();

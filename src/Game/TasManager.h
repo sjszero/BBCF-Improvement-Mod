@@ -34,6 +34,9 @@ public:
             m_runState == TasRunState::PlayingMovie ||
             m_runState == TasRunState::PresentationLeadOut;
     }
+    bool IsPlaybackRunning() const {
+        return IsPlaying() || m_runState == TasRunState::ReplayingMovie;
+    }
     bool IsEditingRecording() const { return m_runState == TasRunState::PausedAtMovieFrame && !m_movie.empty(); }
     bool IsPlaybackUiHidden() const { return m_playbackUiHidden; }
     size_t GetRecordedFrameCount() const { return m_movie.size(); }

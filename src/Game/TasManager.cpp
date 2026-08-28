@@ -346,6 +346,10 @@ void TasManager::StopPlayback(bool completed) {
 }
 
 void TasManager::EditAndAdvanceFrames(int count) {
+    if (IsPlaybackRunning()) {
+        SetError("Cannot advance frames during playback.");
+        return;
+    }
     if (!m_active || !HasBaseSnapshot() || count <= 0) {
         SetError("Save a base state before editing movie input.");
         return;
@@ -420,6 +424,10 @@ bool TasManager::AdvanceFrames(int count) {
     if (count <= 0) {
         return true;
     }
+    if (IsPlaybackRunning()) {
+        SetError("Cannot advance frames during playback.");
+        return false;
+    }
     EditAndAdvanceFrames(count);
     return m_error.empty();
 }
@@ -427,6 +435,10 @@ bool TasManager::AdvanceFrames(int count) {
 bool TasManager::RewindFrames(int count) {
     if (count <= 0) {
         return true;
+    }
+    if (IsPlaybackRunning()) {
+        SetError("Cannot rewind frames during playback.");
+        return false;
     }
     if (!m_active || !HasBaseSnapshot()) {
         SetError("Save a base state before rewinding.");
