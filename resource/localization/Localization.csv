@@ -1372,3 +1372,9 @@ Loads each time this screen comes up.,Loads each time this screen comes up.,Se c
 Starts playing the next time this screen's music loads.,Starts playing the next time this screen's music loads.,Empieza a sonar la próxima vez que se cargue la música de esta pantalla.
 "The game loads this one at startup, so it is already in use.","The game loads this one at startup, so it is already in use.","El juego carga esta al iniciarse, así que ya está en uso."
 "The game only loads this one while it starts up, so restart the game to hear it. The swap itself is saved and done.","The game only loads this one while it starts up, so restart the game to hear it. The swap itself is saved and done.","El juego solo carga esta mientras arranca, así que reinicia el juego para oírla. El cambio ya está guardado y hecho."
+
+Sections,Sections,Secciones
+No section,No section,Sin sección
+section name,section name,nombre de sección
+Add section,Add section,Añadir sección
+"Add markers at important points in a long combo. Clicking one jumps straight to that frame without changing the movie.","Add markers at important points in a long combo. Clicking one jumps straight to that frame without changing the movie.","Añade marcadores en puntos importantes de un combo largo. Al hacer clic, saltas directamente a ese frame sin cambiar el movie."
