@@ -1,0 +1,79 @@
+name: Build BBCF Improvement Mod
+
+on:
+  workflow_dispatch:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Confirm TAS source configuration
+        run: |
+          if (Test-Path 'src/experimental/filesystem') {
+            throw 'Unexpected temporary filesystem compatibility header found.'
+          }
+          Write-Host 'Using TAS source with the original project configuration.'
+
+      - name: Build TAS ReleaseDeploy Win32
+        run: |
+          msbuild BBCF_IM.sln `
+            /m `
+            /v:minimal `
+            /p:Configuration=ReleaseDeploy `
+            /p:Platform=Win32 `
+            /p:BuildProjectReferences=true `
+            /p:DeployOnBuild=false `
+            /p:BbcfDeployEnabled=false `
+            /p:BbcfLaunchAfterDeploy=false
+
+      - name: Verify TAS output
+        run: |
+          $dll = Get-Item 'bin/Release/dinput8.dll' -ErrorAction Stop
+          if ($dll.Length -le 0) {
+            throw "Built DLL is empty: $($dll.FullName)"
+          }
+          Write-Host "TAS DLL: $($dll.FullName)"
+          Write-Host "Size: $($dll.Length) bytes"
+          $sha256 = [System.Security.Cryptography.SHA256]::Create()
+          try {
+            $hashBytes = $sha256.ComputeHash([System.IO.File]::ReadAllBytes($dll.FullName))
+            $hash = ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToLowerInvariant()
+          }
+          finally {
+            $sha256.Dispose()
+          }
+          Write-Host "SHA-256: $hash"
+
+      - name: Collect TAS artifact
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Copy-Item bin/Release/dinput8.dll artifact/dinput8.dll
+          Copy-Item resource/settings.ini artifact/settings.ini
+          Copy-Item resource/palettes.ini artifact/palettes.ini
+          Get-ChildItem artifact | Select-Object Name, Length, LastWriteTime
+
+      - name: Upload TAS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BBCF-IM-tas
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 14
