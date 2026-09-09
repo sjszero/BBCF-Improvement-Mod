@@ -225,17 +225,20 @@ void TasWindow::Draw() {
     // that would move the match or the movie underneath the capture does not.
     ImGui::BeginDisabled(recording);
     DrawTimeline(manager);
-    DrawSections(manager);
     ImGui::EndDisabled();
     DrawComposer(manager);
+    // The overwrite popup commits the edit during this draw pass. Process it before drawing
+    // sections so labels removed by the commit disappear immediately instead of after the next
+    // frame or after clicking another timeline row.
+    DrawInsertWarningPopup(manager);
     ImGui::BeginDisabled(recording);
+    DrawSections(manager);
     DrawPlaybackSection(manager);
     ImGui::EndDisabled();
     ImGui::EndDisabled();
 
     DrawFooter(manager);
 
-    DrawInsertWarningPopup(manager);
     DrawMovieFilePopup(manager);
     DrawHelpPopup();
 }
@@ -448,9 +451,12 @@ void TasWindow::DrawSections(TasManager& manager) {
     ImGui::SetNextItemWidth(220.0f);
     ImGui::InputTextWithHint("##tas_section_name", L("section name").c_str(), m_sectionName, sizeof(m_sectionName));
     ImGui::SameLine();
-    ImGui::BeginDisabled(manager.IsPlaybackRunning() || manager.IsLiveRecording() || manager.GetFrameCount() == 0 || m_sectionName[0] == '\0');
+    const size_t cursor = manager.GetCursor();
+    ImGui::BeginDisabled(manager.IsPlaybackRunning() || manager.IsLiveRecording() || cursor == 0 || m_sectionName[0] == '\0');
     if (ImGui::Button(L("Add section").c_str())) {
-        if (manager.AddSection(manager.GetCursor(), m_sectionName)) {
+        // The cursor points at the next frame to be edited. A marker belongs to the frame
+        // immediately before it: after completing frame 70, the cursor is already at 71.
+        if (manager.AddSection(cursor - 1, m_sectionName)) {
             m_sectionName[0] = '\0';
         }
     }
@@ -463,7 +469,8 @@ void TasWindow::DrawSections(TasManager& manager) {
         std::snprintf(label, sizeof(label), "%u  %s", static_cast<unsigned int>(section.frame), section.name.c_str());
         ImGui::BeginDisabled(manager.IsPlaybackRunning() || manager.IsLiveRecording());
         if (ImGui::Button(label)) {
-            manager.SeekToFrame(section.frame);
+            // The marker belongs to the completed frame; resume editing at the next frame.
+            manager.SeekToFrame((std::min)(section.frame + 1, manager.GetFrameCount()));
         }
         ImGui::SameLine();
         if (ImGui::SmallButton("x")) {

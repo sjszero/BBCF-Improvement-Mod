@@ -133,6 +133,19 @@ void TasManager::InvalidateKeyframesAfter(size_t frame) {
     for (Keyframe& keyframe : m_keyframes) {
         if (keyframe.valid && keyframe.movieFrame > frame) {
             keyframe.valid = false;
+            keyframe.sectionCheckpoint = false;
+        }
+    }
+}
+
+void TasManager::InvalidateSectionCheckpointsBefore(size_t frame) {
+    for (Keyframe& keyframe : m_keyframes) {
+        // A checkpoint at `frame` is the state immediately before that frame executes, so it
+        // remains valid when that frame itself is edited. Only checkpoints after it depend on
+        // the changed input.
+        if (keyframe.valid && keyframe.sectionCheckpoint && keyframe.movieFrame > frame) {
+            keyframe.valid = false;
+            keyframe.sectionCheckpoint = false;
         }
     }
 }
@@ -163,25 +176,56 @@ void TasManager::CaptureKeyframeIfDue() {
     if (m_keyframes.empty() || !m_snapshotOwner || m_playhead == 0) {
         return;
     }
-    if (m_playhead % kKeyframeInterval != 0) {
+
+    const bool atSection = std::any_of(m_sections.begin(), m_sections.end(),
+        [this](const TasSection& section) {
+            return section.frame < (std::numeric_limits<size_t>::max)() &&
+                section.frame + 1 == m_playhead;
+        });
+    if (!atSection && m_playhead % kKeyframeInterval != 0) {
         return;
     }
-    // Already covered by an existing keyframe at this exact frame.
-    for (const Keyframe& keyframe : m_keyframes) {
+
+    for (Keyframe& keyframe : m_keyframes) {
         if (keyframe.valid && keyframe.movieFrame == m_playhead) {
+            if (atSection) keyframe.sectionCheckpoint = true;
             return;
         }
     }
 
-    const size_t slot = m_nextKeyframeSlot % m_keyframes.size();
+    size_t slot = m_keyframes.size();
+    if (atSection) {
+        // Prefer an unused periodic slot, and never evict another section checkpoint.
+        for (size_t i = 0; i < m_keyframes.size(); ++i) {
+            if (!m_keyframes[i].valid || !m_keyframes[i].sectionCheckpoint) {
+                slot = i;
+                break;
+            }
+        }
+    } else {
+        slot = m_nextKeyframeSlot % m_keyframes.size();
+        for (size_t offset = 0; offset < m_keyframes.size(); ++offset) {
+            const size_t candidate = (m_nextKeyframeSlot + offset) % m_keyframes.size();
+            if (!m_keyframes[candidate].sectionCheckpoint) {
+                slot = candidate;
+                break;
+            }
+        }
+    }
+    if (slot == m_keyframes.size()) {
+        return;
+    }
+
     if (!m_snapshotOwner->save_snapshot_index(static_cast<int>(slot) + 1)) {
         LOG(1, "[TAS] keyframe capture failed at frame %u\n", static_cast<unsigned int>(m_playhead));
         return;
     }
     m_keyframes[slot].movieFrame = m_playhead;
     m_keyframes[slot].valid = true;
+    m_keyframes[slot].sectionCheckpoint = atSection;
     m_nextKeyframeSlot = slot + 1;
-    LOG(1, "[TAS] keyframe slot=%u movieFrame=%u\n",
+    LOG(1, "[TAS] %s checkpoint slot=%u movieFrame=%u\n",
+        atSection ? "section" : "periodic",
         static_cast<unsigned int>(slot), static_cast<unsigned int>(m_playhead));
 }
 
@@ -517,12 +561,16 @@ void TasManager::EditAndAdvanceFrames(int count) {
     const size_t end = m_playhead + frameCount;
     if (m_playhead < m_movie.size()) {
         // This is the destructive edit the UI warns about: everything after the playhead
-        // is replaced, which is exactly what makes it a rerecord rather than an undo.
+        // is replaced, which is exactly what makes a rerecord rather than an undo.
         LOG(1, "[TAS] overwrite at frame %u: movie %u -> %u frames\n",
             static_cast<unsigned int>(m_playhead),
             static_cast<unsigned int>(m_movie.size()),
             static_cast<unsigned int>(end));
         m_movie.resize(m_playhead);
+        m_sections.erase(std::remove_if(m_sections.begin(), m_sections.end(),
+            [this](const TasSection& section) { return section.frame >= m_playhead; }),
+            m_sections.end());
+        InvalidateSectionCheckpointsBefore(m_playhead);
         InvalidateKeyframesAfter(m_playhead);
         ++m_rerecordCount;
     }
@@ -577,6 +625,7 @@ bool TasManager::InsertNeutralFrames(size_t index, size_t count) {
     for (TasSection& section : m_sections) {
         if (section.frame >= index) section.frame += count;
     }
+    InvalidateSectionCheckpointsBefore(index);
     if (index <= m_playhead) {
         m_playhead += count;
     }
@@ -597,13 +646,13 @@ bool TasManager::DeleteFrames(size_t index, size_t count) {
     m_movie.erase(m_movie.begin() + static_cast<ptrdiff_t>(index),
         m_movie.begin() + static_cast<ptrdiff_t>(index + count));
     m_sections.erase(std::remove_if(m_sections.begin(), m_sections.end(),
-        [index, count](TasSection& section) {
-            if (section.frame >= index + count) {
-                section.frame -= count;
-                return false;
-            }
-            return section.frame >= index;
+        [index, count](const TasSection& section) {
+            return section.frame >= index && section.frame < index + count;
         }), m_sections.end());
+    InvalidateSectionCheckpointsBefore(index);
+    for (TasSection& section : m_sections) {
+        if (section.frame >= index + count) section.frame -= count;
+    }
     if (m_playhead > index) {
         m_playhead -= (std::min)(count, m_playhead - index);
     }
@@ -636,6 +685,7 @@ bool TasManager::MoveFrames(size_t fromIndex, size_t count, size_t toIndex, size
 
     const size_t insertAt = toIndex > fromIndex ? toIndex - count : toIndex;
     m_movie.insert(m_movie.begin() + static_cast<ptrdiff_t>(insertAt), block.begin(), block.end());
+    InvalidateSectionCheckpointsBefore((std::min)(fromIndex, toIndex));
     for (TasSection& section : m_sections) {
         const size_t frame = section.frame;
         if (frame >= fromIndex && frame < fromIndex + count) {
@@ -667,6 +717,9 @@ bool TasManager::SetFrameInput(size_t index, TasFrameInput input) {
     }
     PushUndoState();
     m_movie[index] = input;
+    // Retyping a frame changes the frame contents but does not delete the frame itself.
+    // A marker attached to this frame must therefore remain attached to it.
+    InvalidateSectionCheckpointsBefore(index);
     ResyncAfterEdit(index);
     m_error.clear();
     return true;
@@ -1073,6 +1126,9 @@ bool TasManager::AddSection(size_t frame, const std::string& name) {
     }
     PushUndoState();
     m_sections.insert(it, TasSection{ frame, name });
+    if (frame + 1 == m_playhead) {
+        CaptureKeyframeIfDue();
+    }
     return true;
 }
 
@@ -1199,7 +1255,7 @@ bool TasManager::ImportMovie(const std::string& path) {
             }
             break;
         }
-        std::sort(importedSections.begin(), importedSections.end(), [](const TasSection& a, const TasSection& b) {
+        std::stable_sort(importedSections.begin(), importedSections.end(), [](const TasSection& a, const TasSection& b) {
             return a.frame < b.frame;
         });
         for (size_t i = 1; i < importedSections.size(); ++i) {
