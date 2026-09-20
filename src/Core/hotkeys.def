@@ -47,6 +47,10 @@ HOTKEY(StepFrames, stepFramesKeybind, "stepFramesKeybind", "V",
 	"Advance one frame",
 	"While the match is frozen, moves forward exactly one frame. Hold it to creep forward slowly through a sequence.")
 
+HOTKEY(ReplayRewind, replayRewindKeybind, "ReplayRewindKeybind", "B",
+	"Rewind the replay",
+	"While watching a replay, jumps back by the rewind interval set in Replay Extras. Press it again to keep going further back.")
+
 HOTKEY(CopyLobbyLink, copyLobbyLinkKeybind, "CopyLobbyLinkKeybind", "Ctrl+C",
 	"Copy room invite link",
 	"Copies a link to the room you are currently in, so you can paste it to a friend and they can join in one click. Works in player-made rooms only - ranked matches and the replay theater cannot be shared this way.")

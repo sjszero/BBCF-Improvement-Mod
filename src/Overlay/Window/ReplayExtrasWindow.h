@@ -52,6 +52,11 @@ namespace ReplayExtras
 	void DrawTakeoverBody(WindowContainer& container, const char* idScope, bool compact);
 	void DrawCaptureBody(WindowContainer& container, const char* idScope, bool compact);
 
+	// The rewind hotkey. Polled once a frame from WindowManager::HandleButtons, not from
+	// DrawRewindBody: the button only exists while a host is drawing it, and the whole point
+	// of a hotkey is to rewind without a window in the way.
+	void TickRewindHotkey();
+
 	// A fourth row, drawn only while it can do anything: the option that keeps the game's
 	// input display on screen when you pause the replay.
 	//

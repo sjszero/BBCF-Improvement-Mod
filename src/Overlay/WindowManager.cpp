@@ -958,6 +958,10 @@ void WindowManager::HandleButtons()
 		scr->TickSaveStateHotkeys();
 	}
 
+	// Same reason: rewinding a replay was read from inside the button that draws it, so it
+	// only worked while a host window happened to be on screen.
+	ReplayExtras::TickRewindHotkey();
+
 	if (HotkeyManager::WasPressed(HotkeyManager::Hotkey_ToggleMainWindow))
 	{
 		m_windowContainer->GetWindow(WindowType_Main)->ToggleOpen();

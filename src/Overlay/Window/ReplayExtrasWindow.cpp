@@ -1,8 +1,10 @@
 #include "ReplayExtrasWindow.h"
 
+#include "Core/HotkeyManager.h"
 #include "Core/Localization.h"
 #include "Core/Settings.h"
 #include "Core/interfaces.h"
+#include "Core/utils.h"
 #include "Game/SnapshotApparatus/SnapshotApparatus.h"
 #include "Game/Playbacks/UnlimitedPlaybackManager.h"
 #include "Game/gamestates.h"
@@ -96,14 +98,34 @@ namespace ReplayExtras
 		return Mode::Idle;
 	}
 
+	// Exactly the condition the Rewind button enables itself on, so the key and the button
+	// can never disagree about whether rewinding is possible right now.
+	bool CanRewind()
+	{
+		return !IsSearchingForRanked() && InReplayMatch() && g_interfaces.pReplayRewindManager &&
+			!g_interfaces.player1.IsCharDataNullPtr() && !g_interfaces.player2.IsCharDataNullPtr();
+	}
+
+	void TickRewindHotkey()
+	{
+		if (!HotkeyManager::WasPressed(HotkeyManager::Hotkey_ReplayRewind))
+		{
+			return;
+		}
+		if (!CanRewind())
+		{
+			return;
+		}
+		g_interfaces.pReplayRewindManager->rewind_to_nearest();
+	}
+
 	void DrawRewindBody(WindowContainer& container, const char* idScope, bool compact)
 	{
 		(void)container;
 		(void)idScope;
 
 		const bool searching = IsSearchingForRanked();
-		const bool ready = !searching && InReplayMatch() && g_interfaces.pReplayRewindManager &&
-			!g_interfaces.player1.IsCharDataNullPtr() && !g_interfaces.player2.IsCharDataNullPtr();
+		const bool ready = CanRewind();
 
 		const char* why = searching
 			? Messages.Ranked_search_warning()
@@ -152,6 +174,14 @@ namespace ReplayExtras
 		if (compact)
 		{
 			ImGui::ShowHelpMarkerSameLine(Messages.Rewind_interval_help_tooltip());
+		}
+		else
+		{
+			// The key exists whether this row is on screen or not, so say what it is where
+			// someone looking at the button will see it.
+			ImGui::TextDisabled("%s", FormatText(L("Rewind hotkey: %s").c_str(),
+				HotkeyManager::DisplayString(
+					HotkeyManager::GetBinding(HotkeyManager::Hotkey_ReplayRewind)).c_str()).c_str());
 		}
 	}
 
