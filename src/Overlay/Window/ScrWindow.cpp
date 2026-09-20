@@ -872,12 +872,13 @@ bool ScrWindow::s_swapCoordsToggle = false;
 
 namespace {
 
-// True while either battle input slot is holding an up direction (packed digits 7/8/9).
+// True while the 1P battle input slot is holding an up direction (packed digits 7/8/9).
 //
-// Both slots, not just P1: the detection this replaces OR-ed every controller object the
-// game owns, so a player sitting on the P2 side could already toggle the swap. Reading
-// both keeps that working and stays strictly narrower than the old behaviour, so nobody
-// this feature works for today loses it.
+// 1P only. Reading both slots used to be the wider, safer answer, but the 2P side is the
+// training dummy, and a dummy action that jumps holds Up for as long as it is in the air -
+// so every reset landed on a held Up and flipped "Swap sides on every reset" back and
+// forth on its own. The dummy is not a person asking for a side swap. Everything the mod
+// drives the dummy with lives on 2P, so 1P is the only slot a human reset can come from.
 bool IsAnyPlayerHoldingUp()
 {
     if (!IsBattleInputHookInstalled()) {
@@ -892,7 +893,7 @@ bool IsAnyPlayerHoldingUp()
         return false;
     }
 
-    return GetLastObservedBattleInput(0).up || GetLastObservedBattleInput(1).up;
+    return GetLastObservedBattleInput(0).up;
 }
 
 } // namespace
