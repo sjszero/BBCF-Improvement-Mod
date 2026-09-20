@@ -87,6 +87,22 @@ const char* DummyActionManager::SourceLabel(Source source)
 	return "";
 }
 
+bool DummyActionManager::SourceAllowedForTrigger(Source source, TriggerType trigger)
+{
+	if (source == Source_Burst)
+	{
+		return trigger == UnlimitedPlaybackManager::Trigger_OnHit;
+	}
+
+	if (source == Source_Animation)
+	{
+		return trigger != UnlimitedPlaybackManager::Trigger_OnHit
+			&& trigger != UnlimitedPlaybackManager::Trigger_OnBlock;
+	}
+
+	return true;
+}
+
 DummyActionManager::Action& DummyActionManager::Get(TriggerType trigger)
 {
 	return m_actions[static_cast<size_t>(trigger)];
@@ -616,6 +632,22 @@ void DummyActionManager::Load()
 	fclose(file);
 
 	m_loading = false;
+
+	// A file written before Animation was taken off On Hit / On Block can still name one.
+	// Drop it here rather than letting it sit as a row nothing will ever fire: the trigger
+	// list offers no way to change it back, so a kept row would be permanently stuck.
+	for (size_t i = 0; i < m_actions.size(); ++i)
+	{
+		Action& stored = m_actions[i];
+		const TriggerType trigger = static_cast<TriggerType>(i);
+		if (stored.source == Source_None || SourceAllowedForTrigger(stored.source, trigger))
+		{
+			continue;
+		}
+		LOG(1, "[DummyActions] dropping saved %s action on trigger %s - that trigger no longer accepts it\n",
+			SourceLabel(stored.source), TriggerLabel(trigger));
+		stored = Action{};
+	}
 
 	// Names are all that was saved for a file or library, so give the row something to show
 	// rather than a full path.

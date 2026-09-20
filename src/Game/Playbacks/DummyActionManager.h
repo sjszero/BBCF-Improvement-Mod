@@ -103,6 +103,17 @@ public:
 	static const char* TriggerWhen(TriggerType trigger);
 	static const char* SourceLabel(Source source);
 
+	// Which sources a given trigger will accept. Two rules, both about the trigger's own
+	// nature rather than about the UI:
+	//
+	//   - Burst is an answer to being hit, so it means nothing anywhere but On Hit.
+	//   - Animation forces one of the dummy's script states outright, ignoring whether the
+	//     game would let that state start. On Hit and On Block the dummy is in hitstun or
+	//     blockstun, and forcing a move out of either is the dummy breaking the game's own
+	//     rules - the only honest way to act out of those is inputs, which is what every
+	//     other source is. So those two triggers do not offer it.
+	static bool SourceAllowedForTrigger(Source source, TriggerType trigger);
+
 	Action& Get(TriggerType trigger);
 	const Action& Get(TriggerType trigger) const;
 

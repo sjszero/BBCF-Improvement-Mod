@@ -812,9 +812,9 @@ namespace
 		};
 		for (Source source : kSources)
 		{
-			// Bursting only means anything as an answer to being hit.
-			if (source == Manager::Source_Burst
-				&& trigger != UnlimitedPlaybackManager::Trigger_OnHit)
+			// Which sources this trigger takes at all - burst only answers a hit, and
+			// animations are not offered on hit or on block. See SourceAllowedForTrigger.
+			if (!Manager::SourceAllowedForTrigger(source, trigger))
 			{
 				continue;
 			}
