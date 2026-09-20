@@ -821,6 +821,42 @@ void ScrWindow::LoadReplayTakeoverState()
 
     snap_apparatus_takeover->load_snapshot(0);
 
+    // Decide the mirroring HERE, after the snapshot is back, rather than keeping whatever
+    // was worked out when the takeover was first started. The facing byte a playback slot
+    // carries is read against the side you are on, so the only value that can be right is
+    // the one read from the state the playback is about to run against - and that state is
+    // whatever load_snapshot just put back, not whatever was on screen when a button was
+    // pressed several restarts ago.
+    if (!facing_left_takeover_overridden)
+    {
+        const CharData* mine = takeover_as_p1
+            ? g_interfaces.player1.GetData()
+            : g_interfaces.player2.GetData();
+        facing_left_replay_takeover = (mine && mine->facingLeft2 != 0) ? 1 : 0;
+    }
+
+    // The diagnostic line for the "playback comes out mirrored" reports. Everything the
+    // decision is made from, so a DEBUG.txt says which of the inputs was wrong rather than
+    // only that the answer was. Cheap: once per takeover load, not per frame.
+    {
+        const CharData* p1 = g_interfaces.player1.GetData();
+        const CharData* p2 = g_interfaces.player2.GetData();
+        LOG(1, "[Takeover] load: asP1=%d mirror=%d(override=%d) "
+               "p1.facingLeft=%d p1.facingLeft2=%d p2.facingLeft=%d p2.facingLeft2=%d "
+               "trainingSide=%d slotForP1=%d slotForP2=%d frames=%u\n",
+            takeover_as_p1 ? 1 : 0,
+            facing_left_replay_takeover,
+            facing_left_takeover_overridden ? 1 : 0,
+            p1 ? (int)p1->facingLeft : -1, p1 ? (int)p1->facingLeft2 : -1,
+            p2 ? (int)p2->facingLeft : -1, p2 ? (int)p2->facingLeft2 : -1,
+            // Same three bytes SaveTakeoverInputBinding captures; spelled out here because
+            // their named constants live further down the file.
+            (int)(unsigned char)*(GetBbcfBaseAdress() + 0x891A38),
+            (int)(unsigned char)*(GetBbcfBaseAdress() + 0x8929A4),
+            (int)(unsigned char)*(GetBbcfBaseAdress() + 0x8929A8),
+            (unsigned)replay_action_load.size());
+    }
+
     playback_manager.load_into_slot(replay_action_load, facing_left_replay_takeover, 1);
     playback_manager.set_active_slot(1);
     playback_manager.set_playback_type(0); //forces playback type to be "normal" instead of "random"
@@ -2259,6 +2295,9 @@ void ScrWindow::DrawReplayTakeoverBody(const char* idScope, bool compact) {
             bool mirrored = facing_left_replay_takeover != 0;
             if (ImGui::Checkbox(L("Mirror the recorded inputs (diagnostic)").c_str(), &mirrored)) {
                 facing_left_replay_takeover = mirrored ? 1 : 0;
+                // From here on the automatic decision stops touching it, otherwise the next
+                // state load would work it out again and undo the flip on the spot.
+                facing_left_takeover_overridden = true;
                 pending_load_replay_state = true;
             }
         }
@@ -2386,6 +2425,9 @@ void ScrWindow::BeginReplayTakeover(bool asP1) {
     facing_left_replay_takeover = asP1
         ? (g_interfaces.player1.GetData()->facingLeft2 != 0 ? 1 : 0)
         : (g_interfaces.player2.GetData()->facingLeft2 != 0 ? 1 : 0);
+    // A fresh takeover starts from the automatic answer again, whatever the diagnostic
+    // checkbox was left on for the previous one.
+    facing_left_takeover_overridden = false;
 
     SaveTakeoverInputBinding(bbcf_base);
     *(bbcf_base + kTrainingSideOffset) = asP1 ? 0 : 1;

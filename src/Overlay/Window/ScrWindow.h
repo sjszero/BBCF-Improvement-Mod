@@ -218,6 +218,9 @@ private:
 	SnapshotApparatus* snap_apparatus_takeover = nullptr;
 	std::vector<char> replay_action_load{};
 	int facing_left_replay_takeover = 0;
+	// Set by the in-development "Mirror the recorded inputs" checkbox. While it is on, the
+	// automatic facing decision is left alone so flipping it by hand actually sticks.
+	bool facing_left_takeover_overridden = false;
 	bool takeover_active = false;
 	bool takeover_as_p1 = true;
 	// Which side the setup dialog currently has picked, remembered between opens.
