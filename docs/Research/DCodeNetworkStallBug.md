@@ -1277,3 +1277,64 @@ so the whole chain can be proven in one session instead of waiting days:
 ```
 
 That exact sequence is the pass condition.
+
+## 2026-09-20 test run: the repair was a no-op, and why
+
+First run with `DCodeForceSessionWedge=1` (session 06:35:16 → 06:36:37).
+
+**The harness itself worked perfectly.** It produced the genuine failure, and
+the new decoder rendered it in the clear with the token masked:
+
+```
+[WebApi] TEST: DCodeForceSessionWedge corrupted the session token (first byte '6' -> 'X')
+[WebApi] work manager result 11 (request refused / HTTP error) ...
+[WebApi] tus/read response: {"session":"#############","result":1,"date":...,"param":{"status":3}}
+[WebApi] !!! forcing a fresh user/login (profile server rejecting the session, 1/8 this session)
+```
+
+Identical to the natural wedge. Then **nothing** — no new session, no result 7
+or 8, and 400 ms later the game dropped back to the menu (`MatchState::OnMatchEnd`,
+`EndGameMode`). The user could not get online at all.
+
+### Root cause: phase 32's "blocker 2 closed" was WRONG
+
+`FUN_00428050` only arms a Login `if (DAT_00A5A070 == 0)`. Phase 32 concluded
+that always passes because mgr+0x20 has exactly one xref and it is a read.
+
+It is set — by the Login strategy itself. `FUN_0042E660`, on a successful login:
+
+```c
+else if (local_ac == 0) {
+  *(undefined4 *)(param_1 + 4) = 2;
+  *(undefined1 *)(param_2 + 8) = 1;   // param_2 is the manager as undefined4*
+  *param_2 = 1;                        //  -> byte at mgr+0x20 = 1
+}
+```
+
+`param_2 + 8` on an `undefined4 *` is byte offset **0x20** — `DAT_00A5A070`.
+The write goes through a pointer, which is *exactly* the loophole phase 32
+flagged and then dismissed anyway. So after the boot login succeeds the latch
+is 1 and **`FUN_00428050` is a permanent no-op for the rest of the process** —
+which is also why the game has no re-login path and why only a restart has ever
+cured this.
+
+The forced-wedge harness earned its keep on its first run: this would otherwise
+have shipped as a fix that does nothing.
+
+### Three fixes
+
+1. **Clear the latch.** `TryForceRelogin` now writes 0 to mgr+0x20 before
+   calling `FUN_00428050`, and clears the session token with it so the login
+   starts from the same state a fresh process does (`sessionLen=0`). The token
+   is worthless at that point by definition — this only runs after the server
+   has rejected it repeatedly. Both values are logged.
+2. **Watch the login result.** Login and UserCreate publish to **mgr+0x00**,
+   not mgr+4 like the TUS strategies, so nothing was watching them — which is
+   why the test could not say whether the login had even been attempted.
+   `SampleWorkMgrLoginState` now logs mgr+0x00 (1 = ok, 2 = rejected,
+   4 = user/create ok, 0xB = failed/timed out) and the latch transitions.
+3. **Stop the harness firing during online entry.** It corrupted the token in
+   the same millisecond the boot login completed, i.e. mid online-entry, and
+   `matching/*` and `lobby/*` share the session — hence "could not get online".
+   It now waits for 3 successful transfers, so it wedges mid-session the way
+   the real bug does.

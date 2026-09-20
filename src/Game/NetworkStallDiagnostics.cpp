@@ -187,11 +187,24 @@ namespace
 	//  - it frees mgr+0xE0, which only AASTEAM_CNetworker::Update consumes, and
 	//    that runs on the game thread (probe, 2026-09-20: same=1) -- the same
 	//    thread as this poll, so the free cannot race the tick.
-	//  - its `if (DAT_00A5A070 == 0)` guard always passes: mgr+0x20 has exactly
-	//    one xref in the whole binary and it is that read (phases 30/32).
+	//  - its `if (DAT_00A5A070 == 0)` guard does NOT always pass. Phase 32
+	//    concluded it did, from mgr+0x20 having exactly one xref (the read).
+	//    That was wrong, and the 2026-09-20 forced-wedge test caught it: the
+	//    Login strategy itself sets the latch on success, in FUN_0042E660 as
+	//    `*(undefined1 *)(param_2 + 8) = 1` -- param_2 is the manager as
+	//    `undefined4 *`, so that byte is mgr+0x20. The write goes through a
+	//    pointer, which is exactly the loophole phase 32 flagged and then
+	//    dismissed. Consequence: after the boot login succeeds the latch is 1
+	//    and FUN_00428050 is a permanent no-op, which is why the game has no
+	//    re-login path at all and why only a restart has ever cured this.
+	//    So clear the latch first. The session token is cleared with it, to
+	//    match the state a fresh process logs in from (sessionLen=0); the
+	//    current one is worthless by definition here, since this only runs
+	//    after the server has rejected it repeatedly.
 	//  - Login lives at mgr+0xE0 while the TUS transfers live at mgr+0xE4, so
 	//    re-arming it cannot disturb an in-flight tus/read or tus/write.
 	constexpr uintptr_t kWorkMgrStartLoginRva = 0x00028050; // VA 00428050
+	constexpr uintptr_t kWorkMgrLoginLatchRva = 0x0065A070;  // VA 00A5A070 == mgr+0x20
 
 	typedef void(__fastcall* StartLoginFn)(void* workMgr, void* unused);
 
@@ -588,11 +601,33 @@ namespace
 
 		g_lastReloginMs = now;
 		++g_reloginsThisSession;
+
+		uint8_t* const latch = reinterpret_cast<uint8_t*>(moduleBase + kWorkMgrLoginLatchRva);
+		const uint8_t latchBefore = IsBadReadPtr(latch, 1) ? 0xFF : *latch;
+		if (latchBefore != 0xFF && !IsBadWritePtr(latch, 1))
+		{
+			*latch = 0; // without this FUN_00428050 does nothing at all
+		}
+
+		uint8_t* const client = const_cast<uint8_t*>(WebApiClient(moduleBase));
+		size_t clearedLength = 0;
+		if (client != nullptr && !IsBadWritePtr(client + kWebApiSessionOffset, kWebApiSessionMaxLen))
+		{
+			while (clearedLength < kWebApiSessionMaxLen &&
+				client[kWebApiSessionOffset + clearedLength] != 0)
+			{
+				++clearedLength;
+			}
+			memset(client + kWebApiSessionOffset, 0, kWebApiSessionMaxLen);
+		}
+
 		const StartLoginFn startLogin =
 			reinterpret_cast<StartLoginFn>(moduleBase + kWorkMgrStartLoginRva);
 		void* const workMgr = reinterpret_cast<void*>(moduleBase + kSteamWorkMgrRva);
-		IncidentPrintf("[WebApi] !!! forcing a fresh user/login (%s, %d/%d this session)\n",
-			reason, g_reloginsThisSession, kMaxReloginsPerSession);
+		IncidentPrintf("[WebApi] !!! forcing a fresh user/login (%s, %d/%d this session;"
+			" login latch %u -> 0, cleared a %u-char session)\n",
+			reason, g_reloginsThisSession, kMaxReloginsPerSession,
+			latchBefore, static_cast<unsigned>(clearedLength));
 		startLogin(workMgr, nullptr);
 	}
 
@@ -602,10 +637,22 @@ namespace
 	// simulated one, so the re-login path can be proven end-to-end in a single
 	// session instead of waiting days for a natural occurrence.
 	bool g_forcedSessionWedgeDone = false;
+	int g_successfulTransfers = 0;
+	constexpr int kForceWedgeAfterTransfers = 3;
 
 	void MaybeForceSessionWedge(uintptr_t moduleBase)
 	{
 		if (!Settings::settingsIni.dcodeForceSessionWedge || g_forcedSessionWedgeDone)
+		{
+			return;
+		}
+		// 2026-09-20: firing the instant a token appeared corrupted it during the
+		// online ENTRY sequence -- matching/* and lobby/* share the session, so
+		// the player could not get online at all and the wedge never resembled
+		// the real one. Wait until profile traffic has actually succeeded, which
+		// means we are online and past entry, and only then wedge it mid-session
+		// the way the real bug does.
+		if (g_successfulTransfers < kForceWedgeAfterTransfers)
 		{
 			return;
 		}
@@ -959,6 +1006,50 @@ namespace
 		}
 	}
 
+	// The Login and UserCreate strategies do NOT publish to mgr+4 like the TUS
+	// ones -- FUN_0042E660 writes `*param_2`, i.e. mgr+0x00. Not watching it is
+	// why the 2026-09-20 forced-wedge test could not say whether the re-login
+	// had even been attempted. Watch it, and the latch beside it.
+	int32_t g_lastWorkMgrLoginState = 0;
+	int g_lastLoginLatch = -1;
+
+	void SampleWorkMgrLoginState(uintptr_t moduleBase)
+	{
+		const int32_t* const statePtr = reinterpret_cast<const int32_t*>(moduleBase + kSteamWorkMgrRva);
+		const uint8_t* const latchPtr = reinterpret_cast<const uint8_t*>(moduleBase + kWorkMgrLoginLatchRva);
+		if (IsBadReadPtr(statePtr, sizeof(int32_t)) || IsBadReadPtr(latchPtr, 1))
+		{
+			return;
+		}
+		const int32_t state = *statePtr;
+		const int latch = *latchPtr;
+
+		if (state != g_lastWorkMgrLoginState && state != 0)
+		{
+			g_lastWorkMgrLoginState = state;
+			const char* meaning = "?";
+			switch (state)
+			{
+			case 1:   meaning = "user/login ok"; break;
+			case 2:   meaning = "login rejected (needs user/create?)"; break;
+			case 4:   meaning = "user/create ok"; break;
+			case 0xB: meaning = "login failed / timed out"; break;
+			default:  break;
+			}
+			IncidentPrintf("[WebApi] login state %d (%s), latch=%d\n", state, meaning, latch);
+		}
+		else if (state != g_lastWorkMgrLoginState)
+		{
+			g_lastWorkMgrLoginState = state;
+		}
+
+		if (latch != g_lastLoginLatch)
+		{
+			IncidentPrintf("[WebApi] login latch %d -> %d\n", g_lastLoginLatch, latch);
+			g_lastLoginLatch = latch;
+		}
+	}
+
 	// Records every non-zero outcome the strategy ticks publish, so a capture
 	// says "9" (no TUS data) or "0xB" (HTTP error) outright.
 	void SampleWorkMgrState(uintptr_t moduleBase)
@@ -1024,6 +1115,7 @@ namespace
 		}
 		else if (state == 7 || state == 8)
 		{
+			++g_successfulTransfers;
 			if (g_consecutiveWebApiFailures > 0)
 			{
 				IncidentPrintf("[WebApi] recovered after %d consecutive failure(s)\n",
@@ -1574,6 +1666,7 @@ void NetworkStallDiagnostics::OnUpdate()
 		// compares the ticker against.
 		g_gameThreadId = GetCurrentThreadId();
 		InstallStrategyTickProbe(moduleBase);
+		SampleWorkMgrLoginState(moduleBase);
 		MaybeForceSessionWedge(moduleBase);
 		SampleWorkMgrState(moduleBase);
 
