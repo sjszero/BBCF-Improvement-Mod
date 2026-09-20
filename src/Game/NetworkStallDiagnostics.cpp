@@ -227,6 +227,27 @@ namespace
 	ULONGLONG g_lastReloginMs = 0;
 	ULONGLONG g_reloginGraceUntilMs = 0;
 
+	// ---- Defending the newly-minted token ----
+	// 2026-09-20 third test: the re-login works and recovery DOES happen, but it
+	// took 7 attempts over 10 minutes. Cause: the client stores the session from
+	// *every* response, and the responses to tus requests that were already in
+	// flight echo back the poisoned token they were sent with -- so they restore
+	// it over the good one the login just obtained, typically within a second.
+	// Recovery only landed on the attempt that happened to fall in a ~4s gap
+	// with no stale response in flight (16:31:56 login -> 16:32:00 result 7).
+	//
+	// So defend it, narrowly: remember exactly which fingerprint was poisoned,
+	// and if the live token reverts to that specific value inside the window,
+	// put the good one back. Any other value is left alone, so a legitimate
+	// rotation on a successful response still takes effect.
+	constexpr ULONGLONG kSessionDefenceMs = 20000;
+
+	uint8_t g_goodSessionSnapshot[kWebApiSessionMaxLen] = {};
+	uint32_t g_poisonedSessionHash = 0;
+	bool g_haveGoodSnapshot = false;
+	ULONGLONG g_sessionDefenceUntilMs = 0;
+	int g_sessionRestores = 0;
+
 
 	typedef void(__fastcall* CNetworkerUpdateFn)(void* self, void* unused);
 
@@ -506,6 +527,8 @@ namespace
 		}
 	}
 
+	void DefendReloginSession(uintptr_t moduleBase); // defined below, called every frame
+
 	void __fastcall CNetworkerUpdateTrampoline(void* self, void* unused)
 	{
 		const DWORD tid = GetCurrentThreadId();
@@ -519,6 +542,12 @@ namespace
 				" (game thread %lu, same=%d%s)\n",
 				tid, g_gameThreadId, (g_gameThreadId != 0 && tid == g_gameThreadId) ? 1 : 0,
 				previous != 0 ? ", MOVED" : "");
+		}
+
+		const uintptr_t moduleBase = reinterpret_cast<uintptr_t>(GetBbcfBaseAdress());
+		if (moduleBase != 0)
+		{
+			DefendReloginSession(moduleBase);
 		}
 
 		if (g_originalCNetworkerUpdate != nullptr)
@@ -586,6 +615,34 @@ namespace
 		return client;
 	}
 
+	// The session token is a live credential for that backend, and these logs get
+	// attached to bug reports, so it is never written out verbatim -- only its
+	// length and a hash. That answers the only question the capture needs to
+	// answer ("is this the same token as before?") without leaking it.
+	//
+	// The field is an inline char array and is not guaranteed NUL-terminated if
+	// the object is in a half-initialised state, so bound it explicitly.
+	uint32_t WebApiSessionFingerprint(const uint8_t* client, size_t* lengthOut)
+	{
+		uint32_t hash = 2166136261u; // FNV-1a
+		size_t length = 0;
+		for (size_t i = 0; i < kWebApiSessionMaxLen; ++i)
+		{
+			const uint8_t c = client[kWebApiSessionOffset + i];
+			if (c == 0)
+			{
+				break;
+			}
+			hash = (hash ^ c) * 16777619u;
+			++length;
+		}
+		if (lengthOut != nullptr)
+		{
+			*lengthOut = length;
+		}
+		return length != 0 ? hash : 0;
+	}
+
 	void TryForceRelogin(uintptr_t moduleBase, const char* reason)
 	{
 		if (!Settings::settingsIni.dcodeAutoRelogin)
@@ -624,10 +681,62 @@ namespace
 			reinterpret_cast<StartLoginFn>(moduleBase + kWorkMgrStartLoginRva);
 		void* const workMgr = reinterpret_cast<void*>(moduleBase + kSteamWorkMgrRva);
 		g_reloginGraceUntilMs = now + kReloginGraceMs;
+		g_sessionDefenceUntilMs = now + kSessionDefenceMs;
+		g_haveGoodSnapshot = false;
+		{
+			const uint8_t* const poisoned = WebApiClient(moduleBase);
+			g_poisonedSessionHash = (poisoned != nullptr)
+				? WebApiSessionFingerprint(poisoned, nullptr) : 0;
+		}
 		IncidentPrintf("[WebApi] !!! forcing a fresh user/login (%s, %d/%d this session;"
 			" login latch %u -> 0)\n",
 			reason, g_reloginsThisSession, kMaxReloginsPerSession, latchBefore);
 		startLogin(workMgr, nullptr);
+	}
+
+	// Runs every frame from the ticker trampoline while the window is open --
+	// the overwrite lands within about a second, so the 200ms poll is not
+	// reliably fast enough to catch it before the next request goes out.
+	void DefendReloginSession(uintptr_t moduleBase)
+	{
+		if (g_sessionDefenceUntilMs == 0 || GetTickCount64() >= g_sessionDefenceUntilMs)
+		{
+			return;
+		}
+		uint8_t* const client = const_cast<uint8_t*>(WebApiClient(moduleBase));
+		if (client == nullptr)
+		{
+			return;
+		}
+		size_t length = 0;
+		const uint32_t current = WebApiSessionFingerprint(client, &length);
+
+		if (!g_haveGoodSnapshot)
+		{
+			// The login has landed once the token is neither empty nor the
+			// poisoned value we started from.
+			if (length != 0 && current != g_poisonedSessionHash)
+			{
+				memcpy(g_goodSessionSnapshot, client + kWebApiSessionOffset, kWebApiSessionMaxLen);
+				g_haveGoodSnapshot = true;
+				IncidentPrintf("[WebApi] new session %08X held against the rejected one %08X\n",
+					current, g_poisonedSessionHash);
+			}
+			return;
+		}
+
+		// Only ever undo a revert to the exact value the server was rejecting.
+		// A legitimate rotation to some other value is left alone.
+		if (current == g_poisonedSessionHash && !IsBadWritePtr(client + kWebApiSessionOffset, kWebApiSessionMaxLen))
+		{
+			memcpy(client + kWebApiSessionOffset, g_goodSessionSnapshot, kWebApiSessionMaxLen);
+			++g_sessionRestores;
+			if (g_sessionRestores <= 5 || (g_sessionRestores % 50) == 0)
+			{
+				IncidentPrintf("[WebApi] a stale response restored the rejected session; put the new one back (%d)\n",
+					g_sessionRestores);
+			}
+		}
 	}
 
 	// ---- TEST ONLY: make the server reject us on demand ----
@@ -671,34 +780,6 @@ namespace
 		IncidentPrintf("[WebApi] TEST: DCodeForceSessionWedge corrupted the session token"
 			" (first byte '%c' -> '%c'); the server should now reject every request\n",
 			before, session[0]);
-	}
-
-	// The session token is a live credential for that backend, and these logs get
-	// attached to bug reports, so it is never written out verbatim -- only its
-	// length and a hash. That answers the only question the capture needs to
-	// answer ("is this the same token as before?") without leaking it.
-	//
-	// The field is an inline char array and is not guaranteed NUL-terminated if
-	// the object is in a half-initialised state, so bound it explicitly.
-	uint32_t WebApiSessionFingerprint(const uint8_t* client, size_t* lengthOut)
-	{
-		uint32_t hash = 2166136261u; // FNV-1a
-		size_t length = 0;
-		for (size_t i = 0; i < kWebApiSessionMaxLen; ++i)
-		{
-			const uint8_t c = client[kWebApiSessionOffset + i];
-			if (c == 0)
-			{
-				break;
-			}
-			hash = (hash ^ c) * 16777619u;
-			++length;
-		}
-		if (lengthOut != nullptr)
-		{
-			*lengthOut = length;
-		}
-		return length != 0 ? hash : 0;
 	}
 
 	// "steamId=... sessionLen=... sessionHash=... language=... date=... platform=..."

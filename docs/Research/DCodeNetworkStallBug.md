@@ -1399,3 +1399,55 @@ before it could be confirmed.
    0 on output overflow, so a *successful* ~47 KB read logged as "undecodable
    envelope" — exactly the response worth reading. It now truncates; the JSON
    header carrying `result` comes first, so the leading bytes suffice.
+
+## 2026-09-20 third test: RECOVERY CONFIRMED — the repair works end to end
+
+Session 16:14:57 → 16:33. The harness wedged it mid-set, and it came back:
+
+```
+[2026-09-20 16:31:55.733] !!! forcing a fresh user/login (..., 7/8 this session; login latch 1 -> 0)
+[2026-09-20 16:31:56.495] login state 1 (user/login ok), latch=1
+[2026-09-20 16:32:00.365] work manager result 7 (tus/read ok) sessionHash=F685C2AB sessionLen=13
+[2026-09-20 16:32:00.365] recovered after 11 consecutive failure(s)
+[2026-09-20 16:32:02.973] work manager result 8 (tus/write ok) sessionHash=0F046C62 sessionLen=13
+```
+
+Reads and writes both restored. **This is the first time the wedge has ever
+been cleared without restarting the game.** The whole chain — detect,
+clear the latch, re-login, resume — is proven against the genuine failure.
+
+### But it took 7 attempts over 10 minutes
+
+The reason is visible in the session hash on every result line: it stays
+`BF18E6D7` (the poisoned value) from 16:22:01 right through to 16:31:55,
+across **six** successful logins. The login works every time and the token it
+mints keeps disappearing.
+
+Same mechanism as the previous round, with a different culprit value. The
+client stores the session from *every* response, and the responses to tus
+requests already in flight echo back the poisoned token they were sent with —
+restoring it over the good one, typically within a second. Caught mid-act at
+16:29:51.370, where the live token was briefly empty and the server replied
+`{"session":null,"result":1,"param":{"status":1}}` — note status **1**, a
+different code for a null session.
+
+Attempt 7 only worked because it happened to land in a ~4 s gap with no stale
+response in flight: login at 16:31:56.495, first request after it at
+16:32:00.365 used the new token and succeeded.
+
+So recovery was a race, and it won by luck.
+
+### Fix: defend the new token, narrowly
+
+`DefendReloginSession` records the exact fingerprint that was being rejected
+when the re-login fires. Once the login lands, it snapshots the new token, and
+for 20 s afterwards, if the live token reverts to **that specific poisoned
+value**, it puts the good one back. Any other value is left untouched, so a
+legitimate rotation on a successful response still takes effect.
+
+It runs every frame from the ticker trampoline rather than the 200 ms poll,
+because the overwrite lands inside a second and the poll is not reliably fast
+enough to beat the next outgoing request.
+
+Expected result now: recovery on the **first** attempt, seconds after the
+wedge, instead of the seventh.
