@@ -197,10 +197,17 @@ namespace
 	//    dismissed. Consequence: after the boot login succeeds the latch is 1
 	//    and FUN_00428050 is a permanent no-op, which is why the game has no
 	//    re-login path at all and why only a restart has ever cured this.
-	//    So clear the latch first. The session token is cleared with it, to
-	//    match the state a fresh process logs in from (sessionLen=0); the
-	//    current one is worthless by definition here, since this only runs
-	//    after the server has rejected it repeatedly.
+	//    So clear the latch first -- and ONLY the latch.
+	//
+	//    2026-09-20 second test: clearing the session token alongside it, to
+	//    imitate a fresh process, was actively harmful. Requests already in
+	//    flight then go out with an empty session, the server rejects them and
+	//    echoes `"session":""` back, and the client stores the session from
+	//    every response -- so the empty value overwrites the good token the
+	//    login had just minted, 0.2-1.0s later, every single time. That is a
+	//    self-sustaining wipe loop, and the token timeline in that capture shows
+	//    it happening five times in a row. The latch clear alone is what works:
+	//    `login state 1 (user/login ok)` followed every attempt.
 	//  - Login lives at mgr+0xE0 while the TUS transfers live at mgr+0xE4, so
 	//    re-arming it cannot disturb an in-flight tus/read or tus/write.
 	constexpr uintptr_t kWorkMgrStartLoginRva = 0x00028050; // VA 00428050
@@ -211,10 +218,14 @@ namespace
 	constexpr int kReloginFailureThreshold = 2;  // two consecutive rejects, not a blip
 	constexpr int kMaxReloginsPerSession = 8;
 	constexpr ULONGLONG kReloginCooldownMs = 20000;
+	// Requests already in flight when the re-login fires still carry the old
+	// token and will fail; they must not count toward the next trigger.
+	constexpr ULONGLONG kReloginGraceMs = 5000;
 
 	int g_consecutiveWebApiFailures = 0;
 	int g_reloginsThisSession = 0;
 	ULONGLONG g_lastReloginMs = 0;
+	ULONGLONG g_reloginGraceUntilMs = 0;
 
 
 	typedef void(__fastcall* CNetworkerUpdateFn)(void* self, void* unused);
@@ -609,25 +620,13 @@ namespace
 			*latch = 0; // without this FUN_00428050 does nothing at all
 		}
 
-		uint8_t* const client = const_cast<uint8_t*>(WebApiClient(moduleBase));
-		size_t clearedLength = 0;
-		if (client != nullptr && !IsBadWritePtr(client + kWebApiSessionOffset, kWebApiSessionMaxLen))
-		{
-			while (clearedLength < kWebApiSessionMaxLen &&
-				client[kWebApiSessionOffset + clearedLength] != 0)
-			{
-				++clearedLength;
-			}
-			memset(client + kWebApiSessionOffset, 0, kWebApiSessionMaxLen);
-		}
-
 		const StartLoginFn startLogin =
 			reinterpret_cast<StartLoginFn>(moduleBase + kWorkMgrStartLoginRva);
 		void* const workMgr = reinterpret_cast<void*>(moduleBase + kSteamWorkMgrRva);
+		g_reloginGraceUntilMs = now + kReloginGraceMs;
 		IncidentPrintf("[WebApi] !!! forcing a fresh user/login (%s, %d/%d this session;"
-			" login latch %u -> 0, cleared a %u-char session)\n",
-			reason, g_reloginsThisSession, kMaxReloginsPerSession,
-			latchBefore, static_cast<unsigned>(clearedLength));
+			" login latch %u -> 0)\n",
+			reason, g_reloginsThisSession, kMaxReloginsPerSession, latchBefore);
 		startLogin(workMgr, nullptr);
 	}
 
@@ -847,7 +846,12 @@ namespace
 				bits -= 8;
 				if (written >= outCapacity)
 				{
-					return 0;
+					// Truncate rather than fail. A successful tus/read carries the
+					// whole 0x6800 profile and runs to ~47KB, and returning 0 here
+					// made those log as "undecodable envelope" -- precisely the
+					// responses worth reading. The JSON header with "result" comes
+					// first, so the leading bytes are all that is needed.
+					break;
 				}
 				out[written++] = static_cast<uint8_t>((accumulator >> bits) & 0xFF);
 			}
@@ -1107,10 +1111,19 @@ namespace
 			// never heals on its own -- 26/26 failures over 24 minutes on
 			// 2026-09-08, 12/12 over 6 minutes on 2026-09-20, both cured
 			// instantly by a restart, i.e. by a fresh login.
-			++g_consecutiveWebApiFailures;
-			if (g_consecutiveWebApiFailures >= kReloginFailureThreshold)
+			if (g_reloginGraceUntilMs != 0 && GetTickCount64() < g_reloginGraceUntilMs)
 			{
-				TryForceRelogin(moduleBase, "profile server rejecting the session");
+				// Still inside the grace window after a re-login: this is almost
+				// certainly a request that was already in flight with the old
+				// token, so do not let it drive another attempt.
+			}
+			else
+			{
+				++g_consecutiveWebApiFailures;
+				if (g_consecutiveWebApiFailures >= kReloginFailureThreshold)
+				{
+					TryForceRelogin(moduleBase, "profile server rejecting the session");
+				}
 			}
 		}
 		else if (state == 7 || state == 8)

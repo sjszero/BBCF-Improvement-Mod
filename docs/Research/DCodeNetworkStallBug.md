@@ -1338,3 +1338,64 @@ have shipped as a fix that does nothing.
    `matching/*` and `lobby/*` share the session — hence "could not get online".
    It now waits for 3 successful transfers, so it wedges mid-session the way
    the real bug does.
+
+## 2026-09-20 second test: the latch fix works, the token clear was a wipe loop
+
+Session 15:48:28 → 16:08:41. Harness fired correctly this time (after 3
+successful transfers, mid-session, not during online entry).
+
+### What worked
+
+The latch fix is confirmed. Every forced attempt now reads:
+
+```
+[WebApi] !!! forcing a fresh user/login (..., login latch 1 -> 0)
+[WebApi] login state 1 (user/login ok), latch=1
+[WebApi] session token replaced: ... sessionLen=13 sessionHash=<new>
+```
+
+`FUN_00428050` + clearing mgr+0x20 genuinely re-runs `user/login`, and the
+server issues a fresh token every time. Six attempts, six successful logins.
+
+### What broke: clearing the session token
+
+The token timeline says it plainly — every good token was wiped within a second,
+and never by us (the cooldown is 20 s, the next forced attempt is minutes away):
+
+```
+15:52:26 len=13   boot login
+15:55:41 len=0    <- our clear
+15:55:42 len=13   <- re-login succeeds
+15:55:43 len=0    <- WIPED 0.6s later
+15:57:41 len=13 -> 15:57:41 len=0   (0.2s)
+15:59:07 len=13 -> 15:59:08 len=0   (1.0s)
+16:03:02 len=13 -> 16:03:02 len=0   (0.4s)
+16:08:23 len=13 -> survived (session ended 18s later)
+```
+
+Mechanism: requests already in flight when the token is cleared go out with an
+empty session, the server rejects them and **echoes `"session":""` back**, and
+the client stores the session from every response. That empty value overwrites
+the token the login had just minted. Those rejections then feed the failure
+counter and drive another attempt — self-sustaining.
+
+Result for the session: 29 × result 11, 3 × result 7 (all pre-wedge), zero
+recoveries. The wedge persisted into the second match even with the setting
+turned off, because the loop was ours, not the harness's.
+
+Telling detail: the one attempt whose token survived (16:08:23) was immediately
+followed by a **47604-byte** `tus/read` response — about the size of a real
+0x6800 profile payload, i.e. very likely the successful read. The session ended
+before it could be confirmed.
+
+### Three changes
+
+1. **Do not clear the session token.** Only the latch. The latch clear is what
+   makes the login happen; the token clear only destroyed its result.
+2. **Grace window.** 5 s after a forced re-login, failures do not count toward
+   the next trigger — they are almost certainly requests that were already in
+   flight carrying the old token.
+3. **Decode large responses instead of rejecting them.** `Base64Decode` returned
+   0 on output overflow, so a *successful* ~47 KB read logged as "undecodable
+   envelope" — exactly the response worth reading. It now truncates; the JSON
+   header carrying `result` comes first, so the leading bytes suffice.
