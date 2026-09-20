@@ -90,6 +90,11 @@ namespace MainMenu
 			ImGui::ShowHelpMarkerSameLine(Messages.Throw_range_help());
 		}
 
+		// How many frames one press of the step hotkey (or the button) moves forward. File
+		// scope rather than a static inside the draw function, because the hotkeys are
+		// polled from WindowManager whether this page is on screen or not.
+		int g_framesToStep = 1;
+
 		// Freezing and stepping used to be buried at the bottom of the hitbox section, which
 		// is why so few people knew the mod could pause a match at all. It is its own thing:
 		// it works anywhere the hitbox overlay does, with or without boxes drawn.
@@ -105,10 +110,9 @@ namespace MainMenu
 			ImGui::CheckboxWrapped(Messages.Freeze_frame(), &g_gameVals.isFrameFrozen);
 			ImGui::ShowHelpMarkerSameLine(Messages.Freeze_frame_tooltip());
 
-			// No Ctrl check needed any more: HotkeyManager matches modifiers exactly, so a
-			// plain "C" freeze binding no longer also fires on the Ctrl+C room-link shortcut.
-			if (HotkeyManager::WasPressed(HotkeyManager::Hotkey_FreezeFrame))
-				g_gameVals.isFrameFrozen ^= 1;
+			// The hotkeys themselves are NOT read here. They used to be, which made freezing
+			// work only while the mod menu happened to be open on this page. They are polled
+			// from WindowManager::HandleButtons now - see TickFreezeAndStepHotkeys below.
 
 			if (g_gameVals.pFrameCount)
 			{
@@ -125,18 +129,16 @@ namespace MainMenu
 
 			if (g_gameVals.isFrameFrozen)
 			{
-				static int framesToStep = 1;
 				ImGui::HorizontalSpacing();
-				if (ImGui::Button(Messages.Step_frames()) ||
-					HotkeyManager::WasPressedOrRepeated(HotkeyManager::Hotkey_StepFrames))
+				if (ImGui::Button(Messages.Step_frames()))
 				{
-					g_gameVals.framesToReach = *g_gameVals.pFrameCount + framesToStep;
+					g_gameVals.framesToReach = *g_gameVals.pFrameCount + g_framesToStep;
 				}
 				ImGui::ShowHelpMarkerSameLine(Messages.Step_frames_tooltip());
 
 				ImGui::SameLineOrWrap(160.0f);
 				ImGui::SetNextItemWidth(160.0f);
-				ImGui::SliderInt("##framestostep", &framesToStep, 1, 60);
+				ImGui::SliderInt("##framestostep", &g_framesToStep, 1, 60);
 				ImGui::ShowHelpMarkerSameLine(Messages.Step_frames_count_tooltip());
 			}
 
@@ -231,6 +233,37 @@ namespace MainMenu
 					Settings::changeSetting("FrameHistorySpacing", std::to_string(frameHistWin->spacing));
 				ImGui::TreePop();
 			}
+		}
+	}
+
+	// Freezing and frame-stepping, polled once a frame from WindowManager::HandleButtons.
+	//
+	// This is deliberately not read from DrawFreezeAndStep: that runs only while the mod
+	// menu is open on the Overlays page, so the freeze hotkey silently did nothing for
+	// anyone playing with the menu shut - which is everyone. The same gate the section
+	// draws under still applies, so the key is inert outside training/versus/replay.
+	void TickFreezeAndStepHotkeys()
+	{
+		if (!g_gameVals.pGameMode || !g_gameVals.pGameState)
+		{
+			return;
+		}
+		if (!isHitboxOverlayEnabledInCurrentState())
+		{
+			return;
+		}
+
+		// No Ctrl check needed: HotkeyManager matches modifiers exactly, so a plain "C"
+		// freeze binding does not also fire on the Ctrl+C room-link shortcut.
+		if (HotkeyManager::WasPressed(HotkeyManager::Hotkey_FreezeFrame))
+		{
+			g_gameVals.isFrameFrozen ^= 1;
+		}
+
+		if (g_gameVals.isFrameFrozen && g_gameVals.pFrameCount &&
+			HotkeyManager::WasPressedOrRepeated(HotkeyManager::Hotkey_StepFrames))
+		{
+			g_gameVals.framesToReach = *g_gameVals.pFrameCount + g_framesToStep;
 		}
 	}
 

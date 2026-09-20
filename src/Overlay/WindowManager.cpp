@@ -8,6 +8,7 @@
 #include "Window/LogWindow.h"
 #include "Window/MainWindow.h"
 #include "Window/MainMenu/MainMenuNav.h"
+#include "Window/MainMenu/MainMenuPages.h"
 #include "Window/ReplayExtrasWindow.h"
 #include "Window/PaletteEditorWindow.h"
 #include "Window/PalettesConfigWindow.h"
@@ -958,8 +959,10 @@ void WindowManager::HandleButtons()
 		scr->TickSaveStateHotkeys();
 	}
 
-	// Same reason: rewinding a replay was read from inside the button that draws it, so it
-	// only worked while a host window happened to be on screen.
+	// Same reason: freezing the match, stepping a frame, and rewinding a replay were all
+	// read from inside the control that draws them, so each one only worked while the mod
+	// menu happened to be open on the right page.
+	MainMenu::TickFreezeAndStepHotkeys();
 	ReplayExtras::TickRewindHotkey();
 
 	if (HotkeyManager::WasPressed(HotkeyManager::Hotkey_ToggleMainWindow))
