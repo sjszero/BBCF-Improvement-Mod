@@ -40,11 +40,19 @@ namespace NativeFileDialog
 		std::string defaultExtension;      // without the dot
 		std::string initialPath;           // a file or a folder to start in; may be empty
 		int contextId = -1;                // opaque, handed back untouched with the result
+		// Let the user pick more than one file. Open pickers only - a save picker writes one
+		// file by definition. The answers come back in Result::paths.
+		bool allowMultiple = false;
 	};
 
 	struct Result
 	{
 		bool accepted = false;
+		// Every file picked, in the order the dialog reported them. A single-selection
+		// picker returns exactly one entry here.
+		std::vector<std::string> paths;
+		// The first of them. Callers that only ever ask for one file read this and are
+		// unaffected by multi-select existing.
 		std::string path;
 		int contextId = -1;
 	};

@@ -47,6 +47,9 @@ private:
 	void DrawImportButton();
 	void ConsumeFinishedFileDialog();
 	void ImportPaletteFile(const std::string& sourcePath, int charIndex);
+	// One file out of whatever the picker returned: imports it straight away when the file
+	// names its own character, or queues it for the character-select prompt when it cannot.
+	void ImportPickedFile(const std::string& path);
 	void DrawImportCharSelectModal();
 	void DeletePalette(int charIndex, const std::string& palName);
 	void DrawDeleteConfirmModal();
@@ -64,9 +67,13 @@ private:
 	int m_draftAllowDownloads = -1;
 	ImGuiTextFilter m_filter;
 
-	// Pending .hpl import waiting for the user to pick a character (the legacy
-	// format does not store one; .cfpl files import straight from their header).
-	std::string m_pendingImportPath;
+	// Pending .hpl / character-less PNG imports waiting for the user to pick a character
+	// (the legacy format does not store one; .cfpl files import straight from their header).
+	//
+	// A list, not one path: the picker takes several files at once, and any number of them
+	// can need the prompt. They are asked about one at a time, front first, so a batch of
+	// ten legacy files is ten answers rather than one guess applied to all ten.
+	std::vector<std::string> m_pendingImportPaths;
 	int m_pendingImportCharIndex = 0;
 	bool m_openImportCharSelect = false;
 

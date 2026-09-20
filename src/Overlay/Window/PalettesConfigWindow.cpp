@@ -573,9 +573,21 @@ void PalettesConfigWindow::ConsumeFinishedFileDialog()
 		return;
 	}
 
-	if (result.contextId != kFileDialogImportPalette || path.empty())
+	if (result.contextId != kFileDialogImportPalette || result.paths.empty())
 		return;
 
+	for (const std::string& picked : result.paths)
+	{
+		if (picked.empty())
+			continue;
+		ImportPickedFile(picked);
+	}
+}
+
+// One picked file. Split out of the dialog handler so the handler can simply run it over
+// every file the user selected.
+void PalettesConfigWindow::ImportPickedFile(const std::string& path)
+{
 	const std::string fileName = FileNameFromPath(path);
 
 	if (HasExtension(fileName, IMPL_FILE_EXTENSION))
@@ -634,8 +646,7 @@ void PalettesConfigWindow::ConsumeFinishedFileDialog()
 		// No character on the file, so the import is finished in the character-select
 		// popup. Say so: if that popup ever fails to appear, the user still sees that the
 		// file arrived rather than nothing at all.
-		m_pendingImportPath = path;
-		m_pendingImportCharIndex = 0;
+		m_pendingImportPaths.push_back(path);
 		m_openImportCharSelect = true;
 		if (g_notificationBar)
 			g_notificationBar->AddNotification(("Pick a character for " + fileName).c_str());
@@ -652,9 +663,18 @@ void PalettesConfigWindow::DrawImportCharSelectModal()
 {
 	if (m_openImportCharSelect)
 	{
+		if (m_pendingImportPaths.empty())
+		{
+			m_openImportCharSelect = false;
+			return;
+		}
+		m_pendingImportCharIndex = 0;
 		ImGui::OpenPopup("###palettes_import_charselect");
 		m_openImportCharSelect = false;
 	}
+
+	if (m_pendingImportPaths.empty())
+		return;
 
 	const std::string importTitle = std::string(Messages.Import_palette_title()) + "###palettes_import_charselect";
 	ImGui::SetNextWindowSize(ImVec2(360, 0), ImGuiCond_Always);
@@ -663,7 +683,15 @@ void PalettesConfigWindow::DrawImportCharSelectModal()
 		return;
 
 	ImGui::TextWrapped(Messages.Palette_import_legacy_prompt(),
-		FileNameFromPath(m_pendingImportPath).c_str());
+		FileNameFromPath(m_pendingImportPaths.front()).c_str());
+	// Only when there is a queue behind this one: on a single import the line would be
+	// noise, and on a batch it is the difference between "did it take the rest?" and
+	// knowing exactly how many answers are still coming.
+	if (m_pendingImportPaths.size() > 1)
+	{
+		ImGui::TextDisabled("%s", FormatText(L("%d more file(s) to go after this one.").c_str(),
+			(int)m_pendingImportPaths.size() - 1).c_str());
+	}
 	ImGui::Spacing();
 	ImGui::TextUnformatted(Messages.Import_it_for());
 
@@ -685,9 +713,11 @@ void PalettesConfigWindow::DrawImportCharSelectModal()
 	ImGui::SetCursorPosX((std::max)(ImGui::GetStyle().WindowPadding.x,
 		(ImGui::GetWindowWidth() - buttonsWidth) * 0.5f));
 
+	// Cancel drops the whole batch rather than only this file: someone who opened the
+	// picker by mistake wants out, not to press Cancel once per file.
 	if (ImGui::Button(Messages.Cancel(), ImVec2(120, 0)))
 	{
-		m_pendingImportPath.clear();
+		m_pendingImportPaths.clear();
 		ImGui::CloseCurrentPopup();
 	}
 
@@ -695,9 +725,14 @@ void PalettesConfigWindow::DrawImportCharSelectModal()
 
 	if (ImGui::Button(Messages.Import(), ImVec2(120, 0)))
 	{
-		ImportPaletteFile(m_pendingImportPath, m_pendingImportCharIndex);
-		m_pendingImportPath.clear();
+		ImportPaletteFile(m_pendingImportPaths.front(), m_pendingImportCharIndex);
+		m_pendingImportPaths.erase(m_pendingImportPaths.begin());
 		ImGui::CloseCurrentPopup();
+		// Straight on to the next one that still needs an answer.
+		if (!m_pendingImportPaths.empty())
+		{
+			m_openImportCharSelect = true;
+		}
 	}
 
 	ImGui::EndPopup();
@@ -718,6 +753,8 @@ void PalettesConfigWindow::DrawImportButton()
 		request.title = "Import palette";
 		request.filters.push_back({ "BBCF Palettes (*.cfpl;*.hpl;*.png)", "*.cfpl;*.hpl;*.png" });
 		request.contextId = kFileDialogImportPalette;
+		// Palettes arrive in folders, not one at a time.
+		request.allowMultiple = true;
 		NativeFileDialog::Open(kFileDialogOwner, request);
 	}
 

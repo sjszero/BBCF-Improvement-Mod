@@ -814,7 +814,7 @@ Palette assignments,Palette assignments,Asignación de paletas
 Palette_assignments_hint,Picking that color in-game loads the assigned palette automatically.,Elegir ese color dentro del juego carga la paleta asignada automáticamente.
 Palettes_search_hint,Search by palette or character name,Buscar por nombre de paleta o personaje
 Import_palette_button,Import palette...,Importar paleta...
-Palette_import_help,Copies a .cfpl or legacy .hpl palette file into the matching character's folder under BBCF_IM\Palettes and loads it immediately.,Copia un archivo de paleta .cfpl o .hpl (formato antiguo) a la carpeta del personaje correspondiente en BBCF_IM\Palettes y la carga inmediatamente.
+Palette_import_help,"Copies .cfpl, legacy .hpl or .png palette files into the matching character's folder under BBCF_IM\Palettes and loads them immediately. You can pick more than one file at a time.","Copia archivos de paleta .cfpl, .hpl (formato antiguo) o .png a la carpeta del personaje correspondiente en BBCF_IM\Palettes y los carga inmediatamente. Puedes seleccionar varios archivos a la vez."
 Palettes_none_found,No custom palettes were found.,No se encontraron paletas personalizadas.
 Palettes_none_found_help,"Use ""Import palette..."" above, or place palette files in BBCF_IM\Palettes\<Character>\ next to BBCF.exe and use ""Reload custom palettes"" in the Custom palettes section, then reopen this window.","Usa ""Importar paleta..."" arriba, o coloca archivos de paleta en BBCF_IM\Palettes\<Personaje>\ junto a BBCF.exe y usa ""Actualizar paletas personalizadas"" en la sección de Paletas personalizadas; luego vuelve a abrir esta ventana."
 Palette_allow_downloads,Allow opponents to download your palettes,Permitir que los oponentes descarguen tus paletas
@@ -822,8 +822,8 @@ Palette_allow_downloads_help,Allows opponents to save your visible custom palett
 Palette_group_header_single,"%s  (1 palette, %d assigned)","%s  (1 paleta, %d asignadas)"
 Palette_group_header_plural,"%s  (%d palettes, %d assigned)","%s  (%d paletas, %d asignadas)"
 Color %d,Color %d,Color %d
-Not assigned,Not assigned,Sin asignar
 Color %02d,Color %02d,Color %02d
+Not assigned,Not assigned,Sin asignar
 Color_used_by,Color %d  (used by %s),Color %d  (usado por %s)
 Export,Export,Exportar
 Palette_export_tooltip,Save a copy of this palette as a .cfpl file anywhere you like.,Guarda una copia de esta paleta como archivo .cfpl donde quieras.
@@ -838,6 +838,7 @@ Delete palette,Delete palette,Eliminar paleta
 Palette_delete_confirm,"Delete ""%s"" (%s)?","¿Eliminar ""%s"" (%s)?"
 Palette_delete_details,This removes the palette file (and any effect/bloom companion files) from BBCF_IM\Palettes on disk. This cannot be undone.,Elimina el archivo de la paleta (y sus archivos de efecto/bloom asociados) de BBCF_IM\Palettes en el disco. Esto no se puede deshacer.
 Import_palette_title,Import palette,Importar paleta
+%d more file(s) to go after this one.,%d more file(s) to go after this one.,Quedan %d archivo(s) después de este.
 Palette_import_legacy_prompt,"""%s"" is a legacy palette file that doesn't say which character it belongs to.","""%s"" es un archivo de paleta en formato antiguo que no indica a qué personaje pertenece."
 Import it for:,Import it for:,Importar para:
 Import,Import,Importar

@@ -92,6 +92,52 @@ namespace
 		const wchar_t* const fileName = separator + 1;
 		std::memmove(selectedPath, fileName, (wcslen(fileName) + 1) * sizeof(wchar_t));
 	}
+
+	// The multi-select answer is a run of NUL-terminated wide strings ended by an empty one.
+	// Two shapes, and the dialog picks between them without saying so: ONE string means the
+	// user picked a single file and that string is its full path; more than one means the
+	// first is the directory and the rest are bare names inside it.
+	std::vector<std::string> SplitSelection(const wchar_t* buffer, bool multiple)
+	{
+		std::vector<std::string> result;
+		if (buffer == nullptr || buffer[0] == L'\0')
+		{
+			return result;
+		}
+
+		if (!multiple)
+		{
+			result.push_back(utf16_to_utf8(buffer));
+			return result;
+		}
+
+		std::vector<std::wstring> parts;
+		for (const wchar_t* cursor = buffer; *cursor != L'\0'; cursor += wcslen(cursor) + 1)
+		{
+			parts.push_back(cursor);
+		}
+
+		if (parts.size() <= 1)
+		{
+			if (!parts.empty())
+			{
+				result.push_back(utf16_to_utf8(parts[0]));
+			}
+			return result;
+		}
+
+		std::wstring directory = parts[0];
+		if (!directory.empty() && directory.back() != L'\\' && directory.back() != L'/')
+		{
+			directory += L'\\';
+		}
+
+		for (size_t i = 1; i < parts.size(); ++i)
+		{
+			result.push_back(utf16_to_utf8(directory + parts[i]));
+		}
+		return result;
+	}
 }
 
 bool NativeFileDialog::Open(const char* ownerToken, const Request& request)
@@ -111,7 +157,23 @@ bool NativeFileDialog::Open(const char* ownerToken, const Request& request)
 	}
 
 	std::thread([request]() {
-		wchar_t selectedPath[MAX_PATH] = {};
+		// A multi-select answer is one directory plus one name per file, so the buffer has
+		// to hold all of them at once. MAX_PATH is nowhere near enough: the dialog simply
+		// fails (FNERR_BUFFERTOOSMALL) once the selection outgrows it, which for a palette
+		// folder is a handful of files. Single-select keeps the stack buffer.
+		const bool multiple = request.allowMultiple && !request.save;
+		std::vector<wchar_t> multiBuffer;
+		if (multiple)
+		{
+			multiBuffer.resize(64 * 1024, L'\0');
+		}
+
+		wchar_t selectedPathStorage[MAX_PATH] = {};
+		wchar_t* const selectedPath = multiple ? multiBuffer.data() : selectedPathStorage;
+		const DWORD selectedPathCapacity = multiple
+			? static_cast<DWORD>(multiBuffer.size())
+			: static_cast<DWORD>(MAX_PATH);
+
 		wchar_t initialDir[MAX_PATH] = {};
 		wchar_t originalWorkingDirectory[MAX_PATH] = {};
 		GetCurrentDirectoryW(MAX_PATH, originalWorkingDirectory);
@@ -127,7 +189,7 @@ bool NativeFileDialog::Open(const char* ownerToken, const Request& request)
 		// render thread is driving.
 		ofn.hwndOwner = nullptr;
 		ofn.lpstrFile = selectedPath;
-		ofn.nMaxFile = MAX_PATH;
+		ofn.nMaxFile = selectedPathCapacity;
 		ofn.lpstrFilter = filterBuffer.data();
 		ofn.lpstrTitle = title.empty() ? nullptr : title.c_str();
 		ofn.lpstrDefExt = defaultExtension.empty() ? nullptr : defaultExtension.c_str();
@@ -143,6 +205,12 @@ bool NativeFileDialog::Open(const char* ownerToken, const Request& request)
 		else
 		{
 			ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+			// OFN_EXPLORER is what makes the multi-select answer NUL-separated rather than
+			// space-separated; without it a file with a space in its name is unparseable.
+			if (multiple)
+			{
+				ofn.Flags |= OFN_ALLOWMULTISELECT | OFN_EXPLORER;
+			}
 			accepted = GetOpenFileNameW(&ofn) == TRUE;
 		}
 
@@ -153,11 +221,18 @@ bool NativeFileDialog::Open(const char* ownerToken, const Request& request)
 			SetCurrentDirectoryW(originalWorkingDirectory);
 		}
 
-		std::lock_guard<std::mutex> lock(g_state.mutex);
-		g_state.result.accepted = accepted;
 		// Back to UTF-8 for everyone else. Callers must open these with the wide file APIs
 		// (see utils' utf8_to_utf16), or a non-ASCII name is lost again on the way in.
-		g_state.result.path = accepted ? utf16_to_utf8(selectedPath) : std::string();
+		std::vector<std::string> picked;
+		if (accepted)
+		{
+			picked = SplitSelection(selectedPath, multiple);
+		}
+
+		std::lock_guard<std::mutex> lock(g_state.mutex);
+		g_state.result.accepted = accepted && !picked.empty();
+		g_state.result.paths = picked;
+		g_state.result.path = picked.empty() ? std::string() : picked.front();
 		g_state.result.contextId = request.contextId;
 		g_state.completed = true;
 		g_state.active = false;

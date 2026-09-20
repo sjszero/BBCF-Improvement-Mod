@@ -1938,11 +1938,11 @@ struct LocalizationKeysAccessor
         // Color %d
         inline const char* Color_d() const { return Get("Color %d"); }
 
-        // Not assigned
-        inline const char* Not_assigned() const { return Get("Not assigned"); }
-
         // Color %02d
         inline const char* Color_02d() const { return Get("Color %02d"); }
+
+        // Not assigned
+        inline const char* Not_assigned() const { return Get("Not assigned"); }
 
         // Color_used_by
         inline const char* Color_used_by() const { return Get("Color_used_by"); }
@@ -1985,6 +1985,9 @@ struct LocalizationKeysAccessor
 
         // Import_palette_title
         inline const char* Import_palette_title() const { return Get("Import_palette_title"); }
+
+        // %d more file(s) to go after this one.
+        inline const char* d_more_file_s_to_go_after_this_one() const { return Get("%d more file(s) to go after this one."); }
 
         // Palette_import_legacy_prompt
         inline const char* Palette_import_legacy_prompt() const { return Get("Palette_import_legacy_prompt"); }
