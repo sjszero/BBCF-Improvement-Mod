@@ -1493,3 +1493,42 @@ precisely the one that matters. No progress was lost even on the miss.
 Tightening attempt 1 is polish, not correctness: it would need the snapshot to
 key off the login-state transition rather than observing the token change, and
 that state is only sampled in the 200 ms poll.
+
+## 2026-09-20: CONFIRMED FIXED (user-visible verification)
+
+Verified by the reporter against the symptoms rather than the log:
+
+1. `DCodeForceSessionWedge=1`, play a match → D-Code visibly broken, as in the real bug
+2. play a second match → **D-Code came back**
+3. restart → **progress had saved**
+
+That is the whole bug, reproduced and then repaired in-process for the first
+time. `DCodeAutoRelogin` ships on by default.
+
+### The fix, end to end
+
+| stage | mechanism |
+|---|---|
+| detect | 2 consecutive work-manager rejects (result 9 / 0xB) |
+| unblock | clear the login latch at mgr+0x20, which the boot login sets and which made `FUN_00428050` a permanent no-op |
+| repair | `FUN_00428050` arms a type-1 Login → `user/login` → fresh session |
+| hold | `DefendReloginSession` undoes any revert to the specific rejected token, which stale in-flight responses echo back within ~1 s |
+| resume | next `tus/read` / `tus/write` succeeds; profile upload persists |
+
+Measured: trigger → recovery **3.5 s**.
+
+### Known limitation
+
+The D-Code display returns on the **next** match, not inside the one that broke.
+Per-slot auto-recovery is capped at 3 tries (`kMaxAutoRecoveries`), and a slot
+that burns its budget during the outage is never re-armed when the transport
+comes back — in the 16:42 capture slot 0 exhausted its budget at 16:43:37,
+2.5 minutes before recovery landed at 16:46:09, and stayed at state 6 for the
+rest of that room. Slots 4/5, which still had budget, recovered normally and
+accepted payloads at 16:48:11.
+
+`HandleTusGate` already has a "re-armed N wedged slot(s) and reset all retry
+budgets" helper; calling it on a successful re-login would very likely restore
+the display within the same match. Not done — the next match clears it anyway,
+and the progress-loss half of the bug, which is the part that actually costs
+the player something, is fixed.
