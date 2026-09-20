@@ -528,6 +528,7 @@ namespace
 	}
 
 	void DefendReloginSession(uintptr_t moduleBase); // defined below, called every frame
+	void ReArmAllSlots(uintptr_t moduleBase, const char* tag); // defined below
 
 	void __fastcall CNetworkerUpdateTrampoline(void* self, void* unused)
 	{
@@ -1214,6 +1215,10 @@ namespace
 			{
 				IncidentPrintf("[WebApi] recovered after %d consecutive failure(s)\n",
 					g_consecutiveWebApiFailures);
+				// The transport is healthy again, so give back the per-slot retry
+				// budgets the outage consumed and un-wedge anything still sat at
+				// state 6. Otherwise the D-Code stays missing until the next match.
+				ReArmAllSlots(moduleBase, "WebApi");
 			}
 			g_consecutiveWebApiFailures = 0;
 		}
@@ -1227,11 +1232,17 @@ namespace
 		return IsBadReadPtr(gate, sizeof(int32_t)) ? nullptr : gate;
 	}
 
-	// Re-arms every wedged slot so the game's own retry path issues fresh fetches.
-	// Called right after the latch is cleared: while the latch was set the lower
-	// layer was disabled, so any state-6 slot and any consumed retry budget was
-	// collateral damage, not evidence of a bad peer.
-	void ReArmAllSlots(uintptr_t moduleBase)
+	// Re-arms every wedged slot so the game's own retry path issues fresh fetches,
+	// and returns each slot's retry budget. Called whenever the layer underneath
+	// the per-slot fetches comes back, because everything that wedged while it
+	// was down is collateral damage rather than evidence of a bad peer:
+	//   - after the TUS latch is cleared
+	//   - after a forced re-login restores the session (2026-09-20). Without it
+	//     a slot that spent its 3 kMaxAutoRecoveries during the outage stays at
+	//     state 6 for the rest of the room even though the transport is healthy
+	//     again -- which is exactly why the D-Code came back only on the NEXT
+	//     match rather than the one that broke.
+	void ReArmAllSlots(uintptr_t moduleBase, const char* tag)
 	{
 		const uint8_t* const netUserData = reinterpret_cast<const uint8_t*>(moduleBase + kNetworkUserDataRva);
 		int rearmed = 0;
@@ -1258,7 +1269,7 @@ namespace
 				++rearmed;
 			}
 		}
-		IncidentPrintf("[TusGate] re-armed %d wedged slot(s) and reset all retry budgets\n", rearmed);
+		IncidentPrintf("[%s] re-armed %d wedged slot(s) and reset all retry budgets\n", tag, rearmed);
 	}
 
 	// Returns true if the latch was found set (whether or not we cleared it).
@@ -1313,7 +1324,7 @@ namespace
 		g_lastTusGate = 0;
 		IncidentPrintf("[TusGate] auto-clear: latch reset to 0 (%d/%d this session), profile uploads re-enabled\n",
 			g_tusGateClears, kMaxTusGateClears);
-		ReArmAllSlots(moduleBase);
+		ReArmAllSlots(moduleBase, "TusGate");
 		return true;
 	}
 

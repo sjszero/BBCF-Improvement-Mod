@@ -1527,8 +1527,11 @@ comes back — in the 16:42 capture slot 0 exhausted its budget at 16:43:37,
 rest of that room. Slots 4/5, which still had budget, recovered normally and
 accepted payloads at 16:48:11.
 
-`HandleTusGate` already has a "re-armed N wedged slot(s) and reset all retry
-budgets" helper; calling it on a successful re-login would very likely restore
-the display within the same match. Not done — the next match clears it anyway,
-and the progress-loss half of the bug, which is the part that actually costs
-the player something, is fixed.
+**Fixed.** `ReArmAllSlots` — which already existed for the TUS latch — is now
+also called when the re-login recovers the transport. It returns every slot's
+retry budget and forces any slot still sat at state 6 back to 0, which is the
+precondition the game itself uses to issue a fresh fetch. The log line names
+the caller, so `[WebApi] re-armed N wedged slot(s)` distinguishes it from the
+latch path's `[TusGate] re-armed ...`.
+
+The D-Code should now return inside the same match rather than the next one.
