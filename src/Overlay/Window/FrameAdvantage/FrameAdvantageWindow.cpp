@@ -8,7 +8,7 @@
 
 bool FrameAdvantageWindow::HasMatchToReportOn()
 {
-    return isInMatch()
+    return isFrameAdvantageEnabledInCurrentState()
         && !g_interfaces.player1.IsCharDataNullPtr()
         && !g_interfaces.player2.IsCharDataNullPtr();
 }

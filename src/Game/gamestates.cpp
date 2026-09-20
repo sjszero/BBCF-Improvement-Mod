@@ -53,6 +53,15 @@ bool isFrameHistoryEnabledInCurrentState() {
 	return isEnabledInCurrentMode && isEnabledInCurrentState;
 }
 
+// The frame-advantage readout is a training/replay tool, exactly like the frame history
+// bar. It used to gate on isInMatch() alone, so once its checkbox had been ticked in
+// training the window came back in every later match - including online ones, where it
+// has no business being on screen. Same rule as the history bar now.
+bool isFrameAdvantageEnabledInCurrentState()
+{
+	return isFrameHistoryEnabledInCurrentState();
+}
+
 bool isStageSelectorEnabledInCurrentState()
 {
 	return *g_gameVals.pGameState == GameState_CharacterSelectionScreen;
