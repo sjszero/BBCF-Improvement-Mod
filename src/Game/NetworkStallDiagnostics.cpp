@@ -158,6 +158,34 @@ namespace
 	constexpr size_t kHttpReqSize = 0xE44;
 	constexpr size_t kHttpResponseLogBytes = 400;
 
+	// ---- Strategy-ticker thread probe (phase 37) ----
+	// The forced-re-login repair calls FUN_00428050, which FREES mgr+0xE0 and
+	// reassigns it. That is only safe from the thread that ticks the strategies,
+	// and static analysis cannot name that thread: the tick chain ends at
+	//   FUN_00428260(mgr)   // ticks mgr+0xE0 and mgr+0xE4 via vftable+0x0C
+	//     <- FUN_0041D410   // { mgr = FUN_00427CD0(); FUN_00428260(mgr); }
+	//        == slot +0x14 of AASTEAM_CNetworker (vtable VA 0084FF54)
+	// and that slot is only ever invoked polymorphically, so there is no call
+	// site to walk up from.
+	//
+	// So ask the running game instead. Swapping the single vtable pointer for a
+	// trampoline that records GetCurrentThreadId() and tail-calls the original
+	// answers it in one online session -- no repro of the wedge needed, the
+	// ticker runs throughout normal online play. One pointer in .rdata, verified
+	// against its expected value before the write, restored on shutdown, and the
+	// trampoline itself only logs and forwards.
+	constexpr uintptr_t kCNetworkerVtableUpdateSlotRva = 0x0044FF68; // VA 0084FF68
+	constexpr uintptr_t kCNetworkerUpdateRva = 0x0001D410;           // VA 0041D410
+
+	typedef void(__fastcall* CNetworkerUpdateFn)(void* self, void* unused);
+
+	CNetworkerUpdateFn g_originalCNetworkerUpdate = nullptr;
+	void** g_cNetworkerUpdateSlot = nullptr;
+	DWORD g_strategyTickThreadId = 0;
+	DWORD g_gameThreadId = 0;
+	bool g_strategyTickProbeInstalled = false;
+
+
 	// ---- Work-manager completion codes (DAT_00A5A050+4) ----
 	// The strategy ticks publish their outcome here:
 	//   1 login ok (FUN_0042E660), 4 user created (FUN_004287E0),
@@ -427,6 +455,68 @@ namespace
 		}
 	}
 
+	void __fastcall CNetworkerUpdateTrampoline(void* self, void* unused)
+	{
+		const DWORD tid = GetCurrentThreadId();
+		if (tid != g_strategyTickThreadId)
+		{
+			// Logged on the first tick, and again if it ever moves -- a ticker
+			// that migrates between threads would itself be the answer.
+			const DWORD previous = g_strategyTickThreadId;
+			g_strategyTickThreadId = tid;
+			IncidentPrintf("[WebApi] strategy ticker (AASTEAM_CNetworker::Update) on thread %lu"
+				" (game thread %lu, same=%d%s)\n",
+				tid, g_gameThreadId, (g_gameThreadId != 0 && tid == g_gameThreadId) ? 1 : 0,
+				previous != 0 ? ", MOVED" : "");
+		}
+
+		if (g_originalCNetworkerUpdate != nullptr)
+		{
+			g_originalCNetworkerUpdate(self, unused);
+		}
+	}
+
+	void InstallStrategyTickProbe(uintptr_t moduleBase)
+	{
+		if (g_strategyTickProbeInstalled)
+		{
+			return;
+		}
+		g_strategyTickProbeInstalled = true; // one attempt, success or not
+
+		void** const slot = reinterpret_cast<void**>(moduleBase + kCNetworkerVtableUpdateSlotRva);
+		if (IsBadReadPtr(slot, sizeof(void*)))
+		{
+			IncidentPrintf("[WebApi] strategy tick probe: vtable slot unreadable, not installed\n");
+			return;
+		}
+
+		// Refuse to patch anything that is not exactly what was reverse
+		// engineered -- a patched or different build must be left alone.
+		void* const expected = reinterpret_cast<void*>(moduleBase + kCNetworkerUpdateRva);
+		if (*slot != expected)
+		{
+			IncidentPrintf("[WebApi] strategy tick probe: slot holds %p, expected %p; not installed\n",
+				*slot, expected);
+			return;
+		}
+
+		DWORD oldProtect = 0;
+		if (!VirtualProtect(slot, sizeof(void*), PAGE_READWRITE, &oldProtect))
+		{
+			IncidentPrintf("[WebApi] strategy tick probe: VirtualProtect failed, error %lu\n", GetLastError());
+			return;
+		}
+		g_originalCNetworkerUpdate = reinterpret_cast<CNetworkerUpdateFn>(*slot);
+		g_cNetworkerUpdateSlot = slot;
+		*slot = reinterpret_cast<void*>(&CNetworkerUpdateTrampoline);
+		DWORD restored = 0;
+		VirtualProtect(slot, sizeof(void*), oldProtect, &restored);
+
+		IncidentPrintf("[WebApi] strategy tick probe installed at vtable slot %p (original %p)\n",
+			slot, reinterpret_cast<void*>(g_originalCNetworkerUpdate));
+	}
+
 	// ---- ArcSys WebApi session ----
 
 	const uint8_t* WebApiClient(uintptr_t moduleBase)
@@ -565,9 +655,67 @@ namespace
 		LogBlobHexdump("[DCodeTick] WebApi client (session bytes masked CC)", masked, sizeof(masked));
 	}
 
-	// The server's own answer is the last unknown. Logged with the rotating
-	// session token scrubbed -- the response is what mints the next one, so it
-	// carries a live credential.
+	// ---- WebApi response envelope ----
+	// Captured 2026-09-20: a response is 32 hex characters of MD5, then base64
+	// of the payload XORed with the five-byte key "dummy". Decoded:
+	//   {"session":"6aaf56c0001f0","result":1,"date":...,"param":{"status":3}}
+	// "result" is the field FUN_00428AC0 reads as local_108, so non-zero is what
+	// becomes work-manager 0xB, and param.status carries the real reason.
+	//
+	// The first version of this logged the raw envelope and ran the scrub over
+	// it. That could never match: the payload is obfuscated, so the literal
+	// "session" is not present and live tokens went to disk in a form a
+	// five-byte key undoes. Decode first, then scrub, and -- the part that
+	// actually makes it safe -- never emit bytes that failed to decode, because
+	// an undecoded blob cannot be scrubbed.
+	constexpr char kEnvelopeXorKey[] = "dummy";
+	constexpr size_t kEnvelopeXorKeyLen = sizeof(kEnvelopeXorKey) - 1;
+	constexpr size_t kEnvelopeHashChars = 32;
+
+	int Base64Value(char c)
+	{
+		if (c >= 'A' && c <= 'Z') return c - 'A';
+		if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+		if (c >= '0' && c <= '9') return c - '0' + 52;
+		if (c == '+') return 62;
+		if (c == '/') return 63;
+		return -1;
+	}
+
+	// Decodes in-place into `out`, tolerating a missing '=' tail (the game's
+	// payloads are not always padded). Returns the byte count, or 0 on any
+	// invalid character.
+	size_t Base64Decode(const char* in, size_t inLength, uint8_t* out, size_t outCapacity)
+	{
+		uint32_t accumulator = 0;
+		int bits = 0;
+		size_t written = 0;
+		for (size_t i = 0; i < inLength; ++i)
+		{
+			if (in[i] == '=')
+			{
+				break;
+			}
+			const int value = Base64Value(in[i]);
+			if (value < 0)
+			{
+				return 0;
+			}
+			accumulator = (accumulator << 6) | static_cast<uint32_t>(value);
+			bits += 6;
+			if (bits >= 8)
+			{
+				bits -= 8;
+				if (written >= outCapacity)
+				{
+					return 0;
+				}
+				out[written++] = static_cast<uint8_t>((accumulator >> bits) & 0xFF);
+			}
+		}
+		return written;
+	}
+
 	void ScrubSessionValue(char* text)
 	{
 		static const char kKey[] = "\"session\"";
@@ -589,6 +737,49 @@ namespace
 		{
 			*p = '#';
 		}
+	}
+
+	// true only when the envelope decoded to something that really is one of
+	// these responses. Anything else leaves `out` empty and the caller logs
+	// nothing but a length -- a format change should cost diagnostics, not a
+	// leaked credential.
+	bool DecodeWebApiResponse(const char* raw, size_t rawLength, char* out, size_t outSize)
+	{
+		out[0] = '\0';
+		if (rawLength <= kEnvelopeHashChars)
+		{
+			return false;
+		}
+		const char* const body = raw + kEnvelopeHashChars;
+		const size_t bodyLength = rawLength - kEnvelopeHashChars;
+
+		uint8_t decoded[1024];
+		const size_t decodedLength = Base64Decode(body, bodyLength, decoded, sizeof(decoded));
+		if (decodedLength == 0)
+		{
+			return false;
+		}
+
+		size_t copy = decodedLength;
+		if (copy > outSize - 1)
+		{
+			copy = outSize - 1;
+		}
+		for (size_t i = 0; i < copy; ++i)
+		{
+			const uint8_t c = static_cast<uint8_t>(decoded[i] ^ kEnvelopeXorKey[i % kEnvelopeXorKeyLen]);
+			out[i] = (c >= 0x20 && c < 0x7F) ? static_cast<char>(c) : '.';
+		}
+		out[copy] = '\0';
+
+		// Only trust it if it looks like the JSON we expect.
+		if (out[0] != '{' || strstr(out, "\"result\"") == nullptr)
+		{
+			out[0] = '\0';
+			return false;
+		}
+		ScrubSessionValue(out);
+		return true;
 	}
 
 	// Dumps the pending request descriptor for one WebApi request type. Only
@@ -658,16 +849,22 @@ namespace
 		{
 			return;
 		}
-		char body[kHttpResponseLogBytes + 1];
-		for (size_t i = 0; i < copy; ++i)
+		char rawBody[kHttpResponseLogBytes + 1];
+		memcpy(rawBody, begin, copy);
+		rawBody[copy] = '\0';
+
+		char decodedBody[kHttpResponseLogBytes + 1];
+		if (DecodeWebApiResponse(rawBody, copy, decodedBody, sizeof(decodedBody)))
 		{
-			const uint8_t c = static_cast<uint8_t>(begin[i]);
-			body[i] = (c >= 0x20 && c < 0x7F) ? static_cast<char>(c) : '.';
+			IncidentPrintf("[WebApi] %s response: %s%s\n", label, decodedBody,
+				static_cast<size_t>(bodyLength) > copy ? " ...(truncated)" : "");
 		}
-		body[copy] = '\0';
-		ScrubSessionValue(body);
-		IncidentPrintf("[WebApi] %s response: %s%s\n", label, body,
-			static_cast<size_t>(bodyLength) > copy ? " ...(truncated)" : "");
+		else
+		{
+			// Deliberately no payload here -- see DecodeWebApiResponse.
+			IncidentPrintf("[WebApi] %s response: undecodable envelope, %d bytes (payload withheld)\n",
+				label, static_cast<int>(bodyLength));
+		}
 	}
 
 	// Records every non-zero outcome the strategy ticks publish, so a capture
@@ -1261,6 +1458,11 @@ void NetworkStallDiagnostics::OnUpdate()
 		// per-frame result sampling too, in case the DCodeFetchTick hook is not
 		// installed on a patched exe.
 		WatchWebApiSession(moduleBase);
+
+		// This poll runs on the game thread, so it is the reference the probe
+		// compares the ticker against.
+		g_gameThreadId = GetCurrentThreadId();
+		InstallStrategyTickProbe(moduleBase);
 		SampleWorkMgrState(moduleBase);
 
 		// --- Profile upload activity ---

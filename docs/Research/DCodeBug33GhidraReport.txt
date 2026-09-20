@@ -1,0 +1,490 @@
+Program: BBCF.exe
+Image base: 00400000
+
+===== CALLER MAP =====
+004293D0 FUN_004293d0 callers:
+00429410 FUN_00429410 callers:
+004293C0 FUN_004293c0 callers:
+00429430 FUN_00429430 callers:
+00429070 FUN_00429070 callers:
+00429170 FUN_00429170 callers:
+00429DC0 FUN_00429dc0 callers:
+    00480c40 FUN_00480c40
+    006c8b90 FUN_006c8b90
+    004291d0 FUN_004291d0
+004293E0 FUN_004293e0 callers:
+004293F0 FUN_004293f0 callers:
+0046B560 FUN_0046b560 callers:
+    0046c140 FUN_0046c140
+
+----- DECOMPILE 004293d0 FUN_004293d0  -----
+
+undefined4 FUN_004293d0(void)
+
+{
+  return 7;
+}
+
+
+
+----- DECOMPILE 00429410 FUN_00429410  -----
+
+void __thiscall FUN_00429410(int *param_1,int param_2)
+
+{
+  *(undefined4 *)(param_2 + 4) = 0;
+                    /* WARNING: Could not recover jumptable at 0x00429423. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  (**(code **)(*param_1 + 0x14))();
+  return;
+}
+
+
+
+----- DECOMPILE 004293c0 FUN_004293c0  -----
+
+void __fastcall FUN_004293c0(int *param_1)
+
+{
+                    /* WARNING: Could not recover jumptable at 0x004293c6. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  (**(code **)(*param_1 + 0x18))();
+  return;
+}
+
+
+
+----- DECOMPILE 00429430 FUN_00429430  -----
+
+void __fastcall FUN_00429430(int *param_1)
+
+{
+                    /* WARNING: Could not recover jumptable at 0x00429436. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  (**(code **)(*param_1 + 0x1c))();
+  return;
+}
+
+
+
+----- DECOMPILE 00429070 FUN_00429070  -----
+
+undefined4 * __thiscall FUN_00429070(undefined4 *param_1,byte param_2)
+
+{
+  *param_1 = uei::ThinkLogicStrategyBase::vftable;
+  if ((param_2 & 1) != 0) {
+    FID_conflict__free(param_1);
+  }
+  return param_1;
+}
+
+
+
+----- DECOMPILE 00429170 FUN_00429170  -----
+
+undefined4 * __thiscall FUN_00429170(undefined4 *param_1,byte param_2)
+
+{
+  void *local_10;
+  undefined1 *puStack_c;
+  undefined4 local_8;
+  
+  puStack_c = &LAB_00824748;
+  local_10 = ExceptionList;
+  ExceptionList = &local_10;
+  local_8 = 0xffffffff;
+  *param_1 = uei::ThinkLogicStrategyBase::vftable;
+  if ((param_2 & 1) != 0) {
+    FID_conflict__free(param_1);
+  }
+  ExceptionList = local_10;
+  return param_1;
+}
+
+
+
+----- DECOMPILE 00429dc0 FUN_00429dc0  -----
+
+void FUN_00429dc0(void)
+
+{
+  return;
+}
+
+
+
+----- DECOMPILE 004293e0 FUN_004293e0  -----
+
+undefined4 FUN_004293e0(void)
+
+{
+  return 8;
+}
+
+
+
+----- DECOMPILE 004293f0 FUN_004293f0  -----
+
+void __thiscall FUN_004293f0(int *param_1,undefined4 *param_2)
+
+{
+  *param_2 = 0;
+                    /* WARNING: Could not recover jumptable at 0x00429402. Too many branches */
+                    /* WARNING: Treating indirect jump as call */
+  (**(code **)(*param_1 + 0x14))();
+  return;
+}
+
+
+
+----- DECOMPILE 0046b560 FUN_0046b560  -----
+
+void __fastcall FUN_0046b560(int param_1)
+
+{
+  char cVar1;
+  int iVar2;
+  undefined4 uVar3;
+  int *piVar4;
+  int *piVar5;
+  int iVar6;
+  uint uVar7;
+  int iVar8;
+  undefined4 *puVar9;
+  undefined4 *puVar10;
+  int *piVar11;
+  undefined4 *puVar12;
+  int local_68 [4];
+  undefined4 local_58;
+  undefined4 local_54;
+  int local_28;
+  int local_24;
+  int local_20;
+  int local_1c;
+  undefined4 local_18;
+  undefined4 local_14;
+  undefined4 local_10;
+  uint local_8;
+  
+  local_8 = DAT_00a0e0b8 ^ (uint)&stack0xfffffffc;
+  local_24 = param_1;
+  if (*(int *)(param_1 + 0x30a0) != 4) {
+    __security_check_cookie(local_8 ^ (uint)&stack0xfffffffc);
+    return;
+  }
+  local_1c = FUN_0041c900();
+  piVar4 = (int *)(local_1c + 0x1240);
+  iVar8 = 0x40;
+  do {
+    if (*piVar4 != 0) {
+      uVar7 = 0;
+      piVar5 = (int *)(param_1 + 0x3138);
+      do {
+        if (((piVar5[-3] != 0) && (*piVar5 == piVar4[2])) && (piVar5[1] == piVar4[3])) {
+          iVar6 = param_1 + 0x3128 + uVar7 * 0x70;
+          if (iVar6 != 0) {
+            *(undefined4 *)(iVar6 + 4) = 0;
+            *(undefined4 *)(iVar6 + 8) = 0;
+            *(undefined4 *)(iVar6 + 0x10) = 0;
+            *(undefined4 *)(iVar6 + 0x14) = 0;
+            *(undefined4 *)(iVar6 + 0x18) = 0;
+            *(undefined4 *)(iVar6 + 0x1c) = 0;
+            *(undefined4 *)(iVar6 + 0x20) = 0xffffffff;
+            *(undefined4 *)(iVar6 + 0x24) = 0;
+            *(undefined4 *)(iVar6 + 0x28) = 0;
+            FUN_0079f840(iVar6 + 0x30,0,0x40);
+          }
+          break;
+        }
+        uVar7 = uVar7 + 1;
+        piVar5 = piVar5 + 0x1c;
+      } while (uVar7 < 0x40);
+      FUN_0079f840(piVar4 + -2,0,0x68);
+    }
+    piVar4 = piVar4 + 0x1a;
+    iVar8 = iVar8 + -1;
+  } while (iVar8 != 0);
+  piVar4 = (int *)(local_1c + 0x1248);
+  local_28 = 0x40;
+  iVar8 = local_1c;
+  do {
+    iVar6 = local_28;
+    if (piVar4[-3] != 0) {
+      uVar7 = 0;
+      piVar5 = (int *)(param_1 + 0x3138);
+      do {
+        if (((piVar5[-3] != 0) && (*piVar5 == *piVar4)) && (piVar5[1] == piVar4[1])) {
+          iVar8 = local_1c;
+          if (param_1 + 0x3128 + uVar7 * 0x70 != 0) goto LAB_0046b73f;
+          break;
+        }
+        uVar7 = uVar7 + 1;
+        piVar5 = piVar5 + 0x1c;
+      } while (uVar7 < 0x40);
+      iVar2 = FUN_0046c010();
+      iVar8 = local_1c;
+      if (iVar2 != 0) {
+        piVar5 = piVar4 + 2;
+        piVar11 = (int *)(iVar2 + 0x30);
+        for (iVar6 = 0x10; iVar6 != 0; iVar6 = iVar6 + -1) {
+          *piVar11 = *piVar5;
+          piVar5 = piVar5 + 1;
+          piVar11 = piVar11 + 1;
+        }
+        *(int *)(iVar2 + 0x10) = *piVar4;
+        *(int *)(iVar2 + 0x14) = piVar4[1];
+        iVar6 = *piVar4;
+        *(int *)(iVar2 + 0x28) = piVar4[1];
+        *(int *)(iVar2 + 0x24) = iVar6;
+        if ((*piVar4 == *(int *)(local_1c + 0x1230)) && (piVar4[1] == *(int *)(local_1c + 0x1234)))
+        {
+          uVar3 = 1;
+        }
+        else {
+          uVar3 = 0;
+        }
+        *(undefined4 *)(iVar2 + 8) = uVar3;
+        *(undefined4 *)(iVar2 + 4) = 1;
+        piVar4[-3] = 0;
+        iVar6 = local_28;
+        param_1 = local_24;
+        if (*(int *)(iVar2 + 8) == 0) {
+          local_18 = *(undefined4 *)(iVar2 + 0x24);
+          local_14 = *(undefined4 *)(iVar2 + 0x28);
+          puVar9 = &local_18;
+          piVar5 = &local_20;
+          local_20 = 0x2d0004;
+          local_10 = 0;
+          FUN_0040a3c0(piVar5,puVar9);
+          FUN_0040a7e0(piVar5,puVar9);
+          iVar8 = local_1c;
+          iVar6 = local_28;
+          param_1 = local_24;
+        }
+      }
+    }
+LAB_0046b73f:
+    piVar4 = piVar4 + 0x1a;
+    local_28 = iVar6 + -1;
+  } while (local_28 != 0);
+  puVar9 = (undefined4 *)(iVar8 + 0x129c);
+  local_20 = 0x40;
+  local_28 = 0;
+  do {
+    if ((puVar9[-0x19] != 0) && (puVar9[-0x17] == 0)) {
+      uVar7 = 0;
+      piVar4 = (int *)(param_1 + 0x3138);
+      do {
+        if (((piVar4[-3] != 0) && (*piVar4 == puVar9[-0x15])) && (piVar4[1] == puVar9[-0x14])) {
+          param_1 = uVar7 * 0x70 + 0x3128 + param_1;
+          if (param_1 != 0) {
+            uVar3 = *puVar9;
+            piVar4 = (int *)(param_1 + 0x30);
+            piVar5 = local_68;
+            for (iVar8 = 0x10; iVar8 != 0; iVar8 = iVar8 + -1) {
+              *piVar5 = *piVar4;
+              piVar4 = piVar4 + 1;
+              piVar5 = piVar5 + 1;
+            }
+            *(undefined4 *)(param_1 + 0x20) = uVar3;
+            puVar10 = puVar9 + -0x13;
+            puVar12 = (undefined4 *)(param_1 + 0x30);
+            for (iVar8 = 0x10; iVar8 != 0; iVar8 = iVar8 + -1) {
+              *puVar12 = *puVar10;
+              puVar10 = puVar10 + 1;
+              puVar12 = puVar12 + 1;
+            }
+            if (*(int *)(param_1 + 0x34) < local_68[1]) {
+              *(int *)(param_1 + 0x34) = local_68[1];
+              *(int *)(param_1 + 0x38) = local_68[2];
+              *(int *)(param_1 + 0x3c) = local_68[3];
+              *(undefined4 *)(param_1 + 0x40) = local_58;
+              *(undefined4 *)(param_1 + 0x44) = local_54;
+            }
+          }
+          break;
+        }
+        uVar7 = uVar7 + 1;
+        piVar4 = piVar4 + 0x1c;
+      } while (uVar7 < 0x40);
+    }
+    puVar9 = puVar9 + 0x1a;
+    local_20 = local_20 + -1;
+    param_1 = local_24;
+    if (local_20 == 0) {
+      FUN_00427cd0();
+      cVar1 = FUN_00427eb0();
+      if (cVar1 != '\0') {
+        FUN_00427cd0();
+        FUN_00428250();
+        FUN_0041d4c0(0);
+      }
+      __security_check_cookie(local_8 ^ (uint)&stack0xfffffffc);
+      return;
+    }
+  } while( true );
+}
+
+
+
+----- DECOMPILE 00480c40 FUN_00480c40  -----
+
+undefined4 __thiscall FUN_00480c40(int param_1,int param_2)
+
+{
+  FUN_00485090();
+  FUN_00429dc0(2);
+  *(undefined4 *)(param_2 * 0x710 + 0x658 + param_1) = 1;
+  return 1;
+}
+
+
+
+----- DECOMPILE 006c8b90 FUN_006c8b90  -----
+
+undefined4 __fastcall FUN_006c8b90(int param_1)
+
+{
+  int iVar1;
+  undefined4 uVar2;
+  
+  FUN_0043e370("STLD_SaveDataDeleteYesNo");
+  FUN_00695830(0);
+  iVar1 = FUN_006959a0();
+  if (iVar1 == 1) {
+    uVar2 = *(undefined4 *)(param_1 + 0x58);
+    FUN_004b9770(uVar2);
+    FUN_00429dc0(uVar2);
+    FUN_006c4520();
+    return 1;
+  }
+  return 0;
+}
+
+
+
+----- DECOMPILE 004291d0 FUN_004291d0  -----
+
+/* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
+
+int * FUN_004291d0(undefined4 param_1,undefined4 param_2)
+
+{
+  void *pvVar1;
+  int *piVar2;
+  
+  switch(param_1) {
+  case 0:
+    piVar2 = (int *)operator_new(4);
+    if (piVar2 != (int *)0x0) {
+      *piVar2 = (int)uei::ThinkLogicStrategyIdle::vftable;
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+    break;
+  case 1:
+    pvVar1 = operator_new(0xc);
+    if (pvVar1 != (void *)0x0) {
+      piVar2 = (int *)FUN_00428ef0();
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+    break;
+  case 2:
+    pvVar1 = operator_new(8);
+    if (pvVar1 != (void *)0x0) {
+      piVar2 = (int *)FUN_00428d10();
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+    break;
+  case 3:
+    pvVar1 = operator_new(0x18);
+    if (pvVar1 != (void *)0x0) {
+      piVar2 = (int *)FUN_00428e30();
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+    break;
+  case 4:
+    pvVar1 = operator_new(0x10);
+    if (pvVar1 != (void *)0x0) {
+      piVar2 = (int *)FUN_00428dd0();
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+    break;
+  case 5:
+    pvVar1 = operator_new(8);
+    if (pvVar1 != (void *)0x0) {
+      piVar2 = (int *)FUN_00428e90();
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+    break;
+  case 6:
+    pvVar1 = operator_new(8);
+    if (pvVar1 != (void *)0x0) {
+      piVar2 = (int *)FUN_00428f50();
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+    break;
+  case 7:
+    pvVar1 = operator_new(8);
+    if (pvVar1 != (void *)0x0) {
+      piVar2 = (int *)FUN_00428d70();
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+    break;
+  case 8:
+    pvVar1 = operator_new(0xc);
+    if (pvVar1 != (void *)0x0) {
+      piVar2 = (int *)FUN_00428fb0();
+      (**(code **)(*piVar2 + 4))(param_2);
+      return piVar2;
+    }
+  }
+  (**(code **)(_DAT_00000000 + 4))(param_2);
+  return (int *)0x0;
+}
+
+
+
+----- DECOMPILE 0046c140 FUN_0046c140  -----
+
+undefined4 __fastcall FUN_0046c140(int *param_1)
+
+{
+  int iVar1;
+  
+  iVar1 = FUN_0041c900();
+  if ((*(int *)(iVar1 + 0x1220) == 8) && (param_1[0xc28] == 4)) {
+    (**(code **)(*param_1 + 0x30))();
+  }
+  FUN_0046b560();
+  FUN_0046b2f0();
+  FUN_0046a9c0();
+  FUN_0046ae00();
+  iVar1 = param_1[0xc24];
+  if (iVar1 == 1) {
+    FUN_0046ba90();
+  }
+  else if (iVar1 == 2) {
+    FUN_0046bb00();
+  }
+  else if (iVar1 == 3) {
+    FUN_0046bcc0();
+  }
+  if ((param_1[0xc26] != 0) && (param_1[0xc24] == 0)) {
+    param_1[0xc24] = 4;
+    param_1[0xc25] = 0;
+    param_1[0xc26] = 0;
+  }
+  return 1;
+}
+
+
+

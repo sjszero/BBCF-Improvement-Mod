@@ -1,0 +1,37 @@
+Program: BBCF.exe
+
+===== CALLER LEVEL 0 =====
+  00428260 FUN_00428260  <- 1 caller(s)
+        0041d410 FUN_0041d410
+
+===== CALLER LEVEL 1 =====
+  0041d410 FUN_0041d410  <- 0 caller(s)
+
+===== BODIES =====
+----- DECOMPILE 0041d410 FUN_0041d410 -----
+
+void FUN_0041d410(void)
+
+{
+  FUN_00427cd0();
+  FUN_00428260();
+  return;
+}
+
+
+
+----- DECOMPILE 00428260 FUN_00428260 -----
+
+void __fastcall FUN_00428260(int param_1)
+
+{
+  (**(code **)(**(int **)(param_1 + 0xe0) + 0xc))(param_1);
+  (**(code **)(**(int **)(param_1 + 0xe4) + 0xc))(param_1);
+  return;
+}
+
+
+
+===== THREAD-CREATION SITES (FUN_0042EFF0 callers, for naming) =====
+  00438d20 FUN_00438d20
+  004272f0 FUN_004272f0

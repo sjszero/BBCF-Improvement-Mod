@@ -1006,3 +1006,202 @@ only, and only after completion, on the same thread that owns the descriptor's
 lifetime.
 
 One line from the next wedge decides which of the two fixes to build.
+
+## 2026-09-20: SOLVED — the server rejects the session with status 3
+
+Session `DebugHistory/DEBUG_20260920_005139.txt`, 2026-09-19 23:24:52 →
+2026-09-20 00:51:39. Healthy for 80 minutes (15 `tus/read ok`, 29
+`tus/write ok`), then wedged at 00:45:31 and stayed wedged (12 × result 11)
+until the user quit.
+
+### httpOk = 1
+
+The phase-31 flag came back **`httpOk=1`** on every failure, for both
+`tus/read` and `tus/write`. The transport branch is dead: the HTTP request
+succeeds, the server answers, and the failure is an **application error**.
+
+### The response, decoded
+
+Responses are `md5hex(32 chars)` + `base64(XOR(payload, "dummy"))`. Decoded:
+
+```json
+{"session":"6aaf56c0001f0","result":1,"date":1789875924,"param":{"status":3}}
+```
+
+and a successful one for comparison:
+
+```json
+{"session":"6aaf56c0001f0","result":0,"date":1789875904,"psnVer":"0.0.1", ...}
+```
+
+`result` is the field `FUN_00428AC0` reads as `local_108` — non-zero is what
+produces work-manager 0xB. **`param.status == 3` is the actual error.** The
+32-char prefix is an MD5 over the payload plus some salt (it matches neither
+the base64, the raw bytes, nor the plaintext), which does not matter here.
+
+Incidental confirmation: the token in the JSON is `6aaf56c0001f0` — 13
+characters, exactly the `sessionLen=13` our reader reports from client+0x8. The
+field map is fully vindicated.
+
+### Status 3 means the session is rejected
+
+| | |
+|---|---|
+| wedged process quit | 00:51:39 |
+| next process started | **00:51:49 — 10 seconds later** |
+| its first `tus/read ok` | 00:52:09 |
+
+Same account, same IP, ten seconds apart. The server is not down, not
+rate-limiting the account, not in maintenance, and the account is not blocked —
+a *fresh login* is served immediately. The only thing that changed is the
+session token. So **`status: 3` = "session not accepted"**, and the wedge is a
+dead session the client keeps re-sending forever because nothing ever re-logs-in.
+
+The server echoes the rejected token back in the error envelope, which is why
+the hash freezes — it is confirmation of the diagnosis, not evidence for it.
+
+### Rollback measured again
+
+Counter at the last successful `tus/write` (00:45:08): **43**. It then moved in
+RAM to 44 (00:47:59) and 45 (00:51:07). The next session loaded **43**. Progress
+after the last successful write is discarded, exactly as modelled.
+
+### What this settles, and what it does not
+
+**Settled:** the fix is session-side. Phase 30's forced re-login
+(`FUN_00428050` → type-1 Login strategy at mgr+0xE0) is the correct repair, and
+— importantly — it no longer depends on knowing *why* the session dies. A
+restart is functionally a forced re-login, and a restart has now been observed
+curing this within 10 s (here) and 110 s (2026-09-08).
+
+**Not settled:** why the session goes invalid. It survived 80 minutes here but
+only ~1 minute in the 2026-09-08 18:41 session, so it is not a fixed TTL. A
+plausible remaining candidate is a rotation race — the token rotates per
+response and requests run on independent `HttpRequestThread`s, so two in-flight
+requests both carrying token T could leave the client holding a consumed one.
+Unproven, and no longer on the critical path for the fix.
+
+### Blockers to clear before shipping the repair
+
+The two phase-30 questions now matter and are worth closing:
+
+1. which thread ticks the +0xE0 strategy (freeing it from our hook must not race)
+2. whether mgr+0x20 can ever be 1, which would make the re-arm a silent no-op
+
+### Instrumentation defect found
+
+`ScrubSessionValue` does not work. It looks for a literal `"session"` in the
+response, but the payload is XOR+base64 obfuscated, so it matches nothing and
+the token reaches `DEBUG.txt` / `DCodeIncidents.log` in a form anyone can
+decode with a five-byte key. Any log already shared contains a live session
+token. Fix: decode the envelope before scrubbing, or simply do not log the
+first field.
+
+## 2026-09-20 phases 32-37: the scrubber, and the two repair blockers
+
+### Scrubber: fixed and proven
+
+The old `ScrubSessionValue` grepped the raw response for `"session"`. The
+payload is XOR+base64 obfuscated, so it matched nothing and live tokens went to
+disk. Replaced with decode-then-scrub:
+
+- `Base64Decode` (tolerates the missing `=` tail these payloads have)
+- XOR with the five-byte key `dummy`
+- validate the result really is one of these responses (`{` … `"result"`)
+- scrub `"session":"…"` to `#`
+- **and if the envelope does not decode, log only the length — never the bytes.**
+  An undecodable blob cannot be scrubbed, so it must not be emitted. A format
+  change now costs diagnostics instead of a credential.
+
+Verified, not assumed: `scratchpad/test_scrub.cpp` extracts the three functions
+**verbatim from `NetworkStallDiagnostics.cpp`** at test time, compiles them with
+g++, and runs them over the real captured envelopes from
+`DEBUG_20260920_005139.txt` plus four malformed inputs.
+
+```
+FAIL tus/read 135B    decoded=1 -> {"session":"#############","result":1,...,"param":{"status":3}}
+FAIL tus/write 255B   decoded=1 -> {"session":"#############","result":0,...}
+FAIL tus/write 135B   decoded=1 -> {"session":"#############","result":1,...,"param":{"status":3}}
+garbage / empty / hash-only / valid-b64-wrong-key   decoded=0 -> payload withheld
+TOKEN LEAKS: 0
+```
+
+Bonus: the error is now readable straight from the log instead of needing
+manual decoding.
+
+### Blocker 2 — CLOSED: mgr+0x20 is never non-zero
+
+`DAT_00A5A070` is `mgr+0x20`, the guard in `FUN_00428050`. Across the whole
+binary it has **exactly one xref, and it is a READ** (phases 30 and 32 agree).
+The only write to that offset on the manager is `FUN_004282C0`'s
+`*(undefined1 *)(param_1 + 8) = 0`. The two other `+0x20` writes in the
+manager-touching set are in `FUN_0046B560`, on a different object — it obtains
+the manager from the getter separately, and its write pattern
+(`+0x14/+0x18/+0x1c/+0x20=0xffffffff/+0x24/+0x28`, then a vector copy into
+`+0x30`) would corrupt the manager's own vector at `+0x24..+0x2c`. So the guard
+always passes and `FUN_00428050` will always re-arm the Login strategy.
+
+### Blocker 1 — the ticker is identified, its thread is NOT yet proven
+
+Found exactly. Every `ThinkLogicStrategy` vtable has `+0x0C == FUN_00429430`, a
+forwarder to `vftable+0x1C` (the tick). Scanning all 5371 functions in
+`0x400000-0x500000` (phase 34) found one caller in the manager's own range:
+
+```c
+void __fastcall FUN_00428260(int mgr)      // work manager Update
+{
+  (**(code **)(**(int **)(mgr + 0xe0) + 0xc))(mgr);   // Login / types 0-6
+  (**(code **)(**(int **)(mgr + 0xe4) + 0xc))(mgr);   // DownloadTUS / UploadTUS
+}
+```
+
+Its only caller is `FUN_0041D410` = `{ mgr = FUN_00427CD0(); FUN_00428260(mgr); }`,
+which has no direct callers — it is **slot +0x14 of `AASTEAM_CNetworker`**
+(vtable `0084FF54`, RTTI `.?AVAASTEAM_CNetworker@@`, resolved by walking back
+from the stored pointer to the COL).
+
+That slot is invoked polymorphically through a base pointer, so no static call
+site exists to name a thread. Scanning the 45 callers of the CNetworker getter
+`FUN_0041C900` for a `+0x14` indirect call produced one apparent hit,
+`FUN_0046A9C0`, which on inspection is a false positive — the match is
+`*(int *)(iVar5 + 0x14)`, a comparison.
+
+What *is* established: the ticker **cannot be the CUMSTask worker thread**.
+`FUN_00422B00` runs on that worker and blocks in a `Sleep(10)` loop for up to 3 s
+waiting on `mgr+4`, which only the strategy ticks write. If the ticker shared
+that thread every fetch would deadlock and time out; healthy fetches complete in
+~1450 ms. So it is some other thread — but "not the worker" is not "the game
+thread", and the repair needs the latter.
+
+**Decisive next step, cheap and reversible:** `AASTEAM_CNetworker::vftable+0x14`
+is a single pointer in `.rdata` at **`0x0084FF68`**. Swapping it for a
+trampoline that records `GetCurrentThreadId()` once and tail-calls
+`FUN_0041D410` answers this in one session, with no code patch and no epilogue
+contract to honour. Until that returns, driving `FUN_00428050` from our hook is
+an unproven cross-thread free of `mgr+0xE0`, in the exact code path meant to be
+protecting the user's progress.
+
+### Strategy-ticker thread probe (shipped)
+
+`InstallStrategyTickProbe` swaps the single `.rdata` pointer at
+`AASTEAM_CNetworker::vftable+0x14` (module base + `0x0044FF68`) for a trampoline
+that records `GetCurrentThreadId()` and tail-calls the original
+(base + `0x0001D410`). Safeguards:
+
+- refuses to patch unless the slot still holds exactly the expected original,
+  so a different or already-patched build is left alone
+- `VirtualProtect` to RW and back, one install attempt per process
+- the trampoline only logs and forwards; on the first tick it prints the ticker
+  thread, the game thread (recorded in the 200 ms poll), and whether they match,
+  and re-prints only if the ticker ever moves
+
+**This does not need the wedge reproduced.** The ticker runs throughout normal
+online play, so the answer arrives in the first online session on this build:
+
+```
+[WebApi] strategy ticker (AASTEAM_CNetworker::Update) on thread N (game thread M, same=0|1)
+```
+
+`same=1` clears blocker 1 and the forced-re-login repair can be written.
+`same=0` means the repair must be marshalled onto the ticker's thread instead,
+and the trampoline is already the place to do that from.
