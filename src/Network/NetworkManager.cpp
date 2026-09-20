@@ -34,7 +34,21 @@ bool NetworkManager::SendPacket(CSteamID* steamID, Packet* packet)
 	LOG(2, "\tdataSize: %s\n", RawMemoryArrayToString((unsigned char*)&packet->dataSize, sizeof(packet->dataSize)));
 	//LOG(2, "\tdata: %s\n", RawMemoryArrayToString((unsigned char*)&packet->data, sizeof(packet->data)));
 
-	EP2PSend sendType = k_EP2PSendUnreliable;
+	// Reliable, not unreliable.
+	//
+	// Every packet the mod sends is a one-shot piece of state - your palette, whether you
+	// allow palette downloads, the Platinum voice pick, the agreed game mode, the replay
+	// upload veto. None of it is re-sent on a timer and none of it is re-requested, so a
+	// single dropped datagram means the other side simply never learns it, for the whole
+	// match. k_EP2PSendUnreliable also DISCARDS the message outright when the P2P session
+	// to that player is not open yet, and the palette burst goes out at match init, which
+	// is exactly when it may not be. That is the "sometimes the opponent's custom palette
+	// just doesn't show up" report: 11 packets fired into a session that may not exist,
+	// with no retry behind them.
+	//
+	// These are a handful of sub-1200-byte control packets per match, not a per-frame
+	// stream, so the cost of reliability here is nothing.
+	EP2PSend sendType = k_EP2PSendReliable;
 
 	return m_pSteamNetworking->SendP2PPacket(*steamID, packet, packet->packetSize, sendType, 0);
 }
