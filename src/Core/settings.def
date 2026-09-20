@@ -10,6 +10,9 @@ SETTING(std::string, loadStateKeybind, "LoadStateKeybind", "F9");
 SETTING(std::string, loadReplayStateKeybind, "LoadReplayStateKeybind", "F4");
 SETTING(std::string, freezeFrameKeybind, "freezeFrameKeybind", "C");
 SETTING(std::string, stepFramesKeybind, "stepFramesKeybind", "V");
+// Replay Extras' "Rewind" button, as a key. Works while a replay is running whether or not
+// the Replay Extras window is on screen.
+SETTING(std::string, replayRewindKeybind, "ReplayRewindKeybind", "B");
 // Shortcuts for sharing player-created rooms: copy puts a steam://joinlobby link for the
 // room you are in on the clipboard, join opens such a link from the clipboard so the Steam
 // client hands it back to the game. Both are inert while an ImGui text field has keyboard
@@ -81,6 +84,19 @@ SETTING(bool, dcodeForceFailureOnce, "DCodeForceFailureOnce", "0");
 // silently stops uploading your profile, so ranked/net-color progress is lost on
 // restart), reset it so uploads resume. See docs/Research/DCodeNetworkStallBug.md.
 SETTING(bool, dcodeTusGateAutoClear, "DCodeTusGateAutoClear", "1");
+// The actual D-Code / ranked-rollback fix. The profile transport is an ArcSys
+// HTTP API, and when the server starts rejecting our session (work-manager
+// result 11, response param.status 3) every profile read AND write fails for
+// the rest of the process -- so progress earned from that point is discarded on
+// restart. Only a fresh user/login mints a usable session, which is why
+// restarting the game has always been the only cure. On a failure streak this
+// re-runs that login in place. See docs/Research/DCodeNetworkStallBug.md.
+SETTING(bool, dcodeAutoRelogin, "DCodeAutoRelogin", "1");
+// TEST ONLY: corrupt one byte of the live session token so the server rejects
+// it exactly the way the real bug does (result 11 / status 3), to exercise the
+// re-login fix above end-to-end without waiting days for a natural occurrence.
+// Fires once per launch while set to 1.
+SETTING(bool, dcodeForceSessionWedge, "DCodeForceSessionWedge", "0");
 // Spectator desync fix: when the spectator's SyncInput would report starvation
 // (input not yet received over the network), substitutes the previous frame's real
 // input instead of letting the game's caller advance the simulation with a fake
@@ -238,6 +254,12 @@ SETTING(int, unlimitedPlaybackLoopRestartMode, "UnlimitedPlaybackLoopRestartMode
 // It delays the 1P side only: the dummy stays instant, so recording a playback (which is
 // driven from the 2P side) is never captured through the delay.
 SETTING(int, trainingInputDelay, "TrainingInputDelay", "0");
+// Whether the training input delay above is suspended while the match is frozen with the
+// freeze-frame hotkey. On by default: the point of freezing is to hold a button and step
+// the game forward one frame at a time, and a delay line turns that into "hold the button,
+// step, step, step, nothing, nothing, then it comes out". Turn it off to keep the delay
+// applied even frame by frame.
+SETTING(bool, trainingInputDelayIgnoreWhenFrozen, "TrainingInputDelayIgnoreWhenFrozen", "1");
 // SETTING(std::string, replayDatabaseFrontendUrl, "ReplayDatabaseFrontendUrl", "http://89.167.76.6:2000/");
 
 // Lobby avatar persistence. Puts the avatar, colour and both accessory slots you last had

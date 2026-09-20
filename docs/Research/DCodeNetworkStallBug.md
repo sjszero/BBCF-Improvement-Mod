@@ -1205,3 +1205,75 @@ online play, so the answer arrives in the first online session on this build:
 `same=1` clears blocker 1 and the forced-re-login repair can be written.
 `same=0` means the repair must be marshalled onto the ticker's thread instead,
 and the trampoline is already the place to do that from.
+
+### Blocker 1 — CLOSED: the ticker runs on the game thread
+
+Session 2026-09-20 03:53:24 → 04:18:07, first run on the probe build:
+
+```
+[WebApi] strategy tick probe installed at vtable slot 0135FF68 (original 00F2D410)
+[WebApi] strategy ticker (AASTEAM_CNetworker::Update) on thread 36756 (game thread 36756, same=1)
+```
+
+**`same=1`.** The strategy ticker and our 200 ms poll are the same thread.
+
+The probe's own arithmetic checks out, which independently confirms the RVAs:
+module base = `0135FF68 - 0x44FF68` = `00F10000`, and the original it captured,
+`00F2D410`, is exactly base + `0x1D410`. The slot held precisely what was
+expected, so the guarded install fired rather than bailing.
+
+The trampoline also proved itself safe in practice — it forwarded every frame
+across 25 minutes of online play (reads and writes succeeding through 04:15),
+with a clean shutdown and no crash.
+
+**Both blockers are now closed**, so the forced re-login can be written:
+`FUN_00428050` is reachable from our game-thread hook without racing the ticker
+that consumes `mgr+0xE0`, and the `mgr+0x20` guard will always let it through.
+
+## 2026-09-20: the repair
+
+### `DCodeAutoRelogin` (default on)
+
+Two consecutive work-manager rejects (result 9 or 0xB) trigger
+`FUN_00428050(workMgr)`, which releases the strategy at mgr+0xE0 and arms a
+type-1 Login in its place — a fresh `user/login`, which is exactly what a
+restart does. Rate-limited to 8 per session with a 20 s cooldown, and it
+refuses to run unless it is on the ticker's thread. A following result 7 or 8
+logs `recovered after N consecutive failure(s)`.
+
+Threshold of 2 rather than 1 because a single reject could be a blip, while the
+wedge never heals on its own: 26/26 failures over 24 min (2026-09-08), 12/12
+over 6 min (2026-09-20), both cured instantly by a restart.
+
+Why each safety property holds, verified rather than assumed:
+
+| risk | why it is not a risk |
+|---|---|
+| frees mgr+0xE0 under the ticker | the only consumer is `AASTEAM_CNetworker::Update`, measured on the game thread (`same=1`), the same thread as this poll |
+| the `DAT_00A5A070` guard no-ops it | that address has exactly one xref in the binary and it is the read itself (phases 30/32) |
+| disturbs an in-flight transfer | Login is mgr+0xE0, the TUS transfers are mgr+0xE4 — separate slots |
+| wrong calling convention | `FUN_00428050` is `__fastcall(ecx)`; the typedef passes ECX+EDX, no stack args either way, so no imbalance |
+
+One accepted caveat: `matching/*` shares the session, so a re-login mid-match is
+not free in principle. In practice it only fires once the session is *already*
+being rejected, at which point matchmaking calls are failing too — re-logging in
+can only improve that.
+
+### `DCodeForceSessionWedge` (default off, test only)
+
+Flips one byte of the live session token at WebApi client +0x8, once per launch,
+after a real token exists. The server then rejects every request with the
+genuine `result 11` / `param.status 3` — the actual failure, not a simulation —
+so the whole chain can be proven in one session instead of waiting days:
+
+```
+[WebApi] TEST: DCodeForceSessionWedge corrupted the session token ...
+[WebApi] work manager result 11 (request refused / HTTP error) ...
+[WebApi] tus/read response: {"session":"#############","result":1,...,"param":{"status":3}}
+[WebApi] !!! forcing a fresh user/login (profile server rejecting the session, 1/8 this session)
+[WebApi] session token replaced: ... sessionHash=<new>
+[WebApi] work manager result 7 (tus/read ok) ...
+[WebApi] recovered after N consecutive failure(s)
+```
+
+That exact sequence is the pass condition.

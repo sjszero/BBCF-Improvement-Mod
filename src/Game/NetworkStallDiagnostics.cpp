@@ -177,6 +177,33 @@ namespace
 	constexpr uintptr_t kCNetworkerVtableUpdateSlotRva = 0x0044FF68; // VA 0084FF68
 	constexpr uintptr_t kCNetworkerUpdateRva = 0x0001D410;           // VA 0041D410
 
+	// ---- The repair: force a fresh user/login ----
+	// FUN_00428050(workMgr) releases the strategy at mgr+0xE0 and arms a type-1
+	// (Login) strategy in its place, i.e. it re-runs user/login and mints a new
+	// session token. That is exactly what restarting the game does, and a
+	// restart has cured this in 10s (2026-09-20) and 110s (2026-09-08).
+	//
+	// Safe to call from here, both parts verified rather than assumed:
+	//  - it frees mgr+0xE0, which only AASTEAM_CNetworker::Update consumes, and
+	//    that runs on the game thread (probe, 2026-09-20: same=1) -- the same
+	//    thread as this poll, so the free cannot race the tick.
+	//  - its `if (DAT_00A5A070 == 0)` guard always passes: mgr+0x20 has exactly
+	//    one xref in the whole binary and it is that read (phases 30/32).
+	//  - Login lives at mgr+0xE0 while the TUS transfers live at mgr+0xE4, so
+	//    re-arming it cannot disturb an in-flight tus/read or tus/write.
+	constexpr uintptr_t kWorkMgrStartLoginRva = 0x00028050; // VA 00428050
+
+	typedef void(__fastcall* StartLoginFn)(void* workMgr, void* unused);
+
+	constexpr int kReloginFailureThreshold = 2;  // two consecutive rejects, not a blip
+	constexpr int kMaxReloginsPerSession = 8;
+	constexpr ULONGLONG kReloginCooldownMs = 20000;
+
+	int g_consecutiveWebApiFailures = 0;
+	int g_reloginsThisSession = 0;
+	ULONGLONG g_lastReloginMs = 0;
+
+
 	typedef void(__fastcall* CNetworkerUpdateFn)(void* self, void* unused);
 
 	CNetworkerUpdateFn g_originalCNetworkerUpdate = nullptr;
@@ -533,6 +560,71 @@ namespace
 			return nullptr;
 		}
 		return client;
+	}
+
+	void TryForceRelogin(uintptr_t moduleBase, const char* reason)
+	{
+		if (!Settings::settingsIni.dcodeAutoRelogin)
+		{
+			return;
+		}
+		if (g_reloginsThisSession >= kMaxReloginsPerSession)
+		{
+			return;
+		}
+		const ULONGLONG now = GetTickCount64();
+		if (g_lastReloginMs != 0 && (now - g_lastReloginMs) < kReloginCooldownMs)
+		{
+			return;
+		}
+
+		// Only ever from the thread that ticks the strategies.
+		if (g_strategyTickThreadId != 0 && GetCurrentThreadId() != g_strategyTickThreadId)
+		{
+			IncidentPrintf("[WebApi] re-login skipped: on thread %lu, ticker is %lu\n",
+				GetCurrentThreadId(), g_strategyTickThreadId);
+			return;
+		}
+
+		g_lastReloginMs = now;
+		++g_reloginsThisSession;
+		const StartLoginFn startLogin =
+			reinterpret_cast<StartLoginFn>(moduleBase + kWorkMgrStartLoginRva);
+		void* const workMgr = reinterpret_cast<void*>(moduleBase + kSteamWorkMgrRva);
+		IncidentPrintf("[WebApi] !!! forcing a fresh user/login (%s, %d/%d this session)\n",
+			reason, g_reloginsThisSession, kMaxReloginsPerSession);
+		startLogin(workMgr, nullptr);
+	}
+
+	// ---- TEST ONLY: make the server reject us on demand ----
+	// Flips one byte of the live session token, which produces the genuine
+	// failure (work-manager result 11, response param.status 3) rather than a
+	// simulated one, so the re-login path can be proven end-to-end in a single
+	// session instead of waiting days for a natural occurrence.
+	bool g_forcedSessionWedgeDone = false;
+
+	void MaybeForceSessionWedge(uintptr_t moduleBase)
+	{
+		if (!Settings::settingsIni.dcodeForceSessionWedge || g_forcedSessionWedgeDone)
+		{
+			return;
+		}
+		uint8_t* const client = const_cast<uint8_t*>(WebApiClient(moduleBase));
+		if (client == nullptr)
+		{
+			return;
+		}
+		uint8_t* const session = client + kWebApiSessionOffset;
+		if (session[0] == 0 || IsBadWritePtr(session, 1))
+		{
+			return; // not signed in yet; wait for a real token
+		}
+		g_forcedSessionWedgeDone = true;
+		const uint8_t before = session[0];
+		session[0] = (before == 'X') ? 'Y' : 'X';
+		IncidentPrintf("[WebApi] TEST: DCodeForceSessionWedge corrupted the session token"
+			" (first byte '%c' -> '%c'); the server should now reject every request\n",
+			before, session[0]);
 	}
 
 	// The session token is a live credential for that backend, and these logs get
@@ -919,6 +1011,25 @@ namespace
 		{
 			LogPendingHttpRequest(moduleBase, kWebApiTypeTusRead, "tus/read");
 			LogPendingHttpRequest(moduleBase, kWebApiTypeTusWrite, "tus/write");
+
+			// A single reject can be a blip; a streak is the wedge, and the wedge
+			// never heals on its own -- 26/26 failures over 24 minutes on
+			// 2026-09-08, 12/12 over 6 minutes on 2026-09-20, both cured
+			// instantly by a restart, i.e. by a fresh login.
+			++g_consecutiveWebApiFailures;
+			if (g_consecutiveWebApiFailures >= kReloginFailureThreshold)
+			{
+				TryForceRelogin(moduleBase, "profile server rejecting the session");
+			}
+		}
+		else if (state == 7 || state == 8)
+		{
+			if (g_consecutiveWebApiFailures > 0)
+			{
+				IncidentPrintf("[WebApi] recovered after %d consecutive failure(s)\n",
+					g_consecutiveWebApiFailures);
+			}
+			g_consecutiveWebApiFailures = 0;
 		}
 	}
 
@@ -1463,6 +1574,7 @@ void NetworkStallDiagnostics::OnUpdate()
 		// compares the ticker against.
 		g_gameThreadId = GetCurrentThreadId();
 		InstallStrategyTickProbe(moduleBase);
+		MaybeForceSessionWedge(moduleBase);
 		SampleWorkMgrState(moduleBase);
 
 		// --- Profile upload activity ---
