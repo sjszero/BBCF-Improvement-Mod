@@ -1941,6 +1941,9 @@ struct LocalizationKeysAccessor
         // Not assigned
         inline const char* Not_assigned() const { return Get("Not assigned"); }
 
+        // Color %02d
+        inline const char* Color_02d() const { return Get("Color %02d"); }
+
         // Color_used_by
         inline const char* Color_used_by() const { return Get("Color_used_by"); }
 

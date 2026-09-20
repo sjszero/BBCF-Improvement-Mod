@@ -823,6 +823,7 @@ Palette_group_header_single,"%s  (1 palette, %d assigned)","%s  (1 paleta, %d as
 Palette_group_header_plural,"%s  (%d palettes, %d assigned)","%s  (%d paletas, %d asignadas)"
 Color %d,Color %d,Color %d
 Not assigned,Not assigned,Sin asignar
+Color %02d,Color %02d,Color %02d
 Color_used_by,Color %d  (used by %s),Color %d  (usado por %s)
 Export,Export,Exportar
 Palette_export_tooltip,Save a copy of this palette as a .cfpl file anywhere you like.,Guarda una copia de esta paleta como archivo .cfpl donde quieras.

@@ -19,6 +19,7 @@ namespace
 #include "Core/interfaces.h"
 #include "Core/logger.h"
 #include "Core/Localization.h"
+#include "Core/utils.h"
 #include "Game/gamestates.h"
 #include "Overlay/imgui_utils.h"
 #include "Overlay/Logger/ImGuiLogger.h"
@@ -380,6 +381,25 @@ const char* PaletteEditorWindow::PaletteDataForPreview(CharPaletteHandle& charPa
 	if (palIndex == 0)
 		return g_interfaces.pPaletteManager->GetOrigPalFileAddr(PaletteFile_Character, charPalHandle);
 	return m_customPaletteVector[charIndex][palIndex].file0;
+}
+
+std::string PaletteEditorWindow::PaletteDisplayName(const IMPL_info_t& palInfo,
+	const CharPaletteHandle& charPalHandle)
+{
+	if (strncmp(palInfo.palName, "Default", IMPL_PALNAME_LENGTH) != 0)
+	{
+		return std::string(palInfo.palName, strnlen(palInfo.palName, IMPL_PALNAME_LENGTH));
+	}
+
+	// Slots are 0-based in memory and 1-based on the character select screen, which is the
+	// only numbering the player has ever seen. -1 means match init has not read it yet.
+	const int slot = charPalHandle.GetOrigPalIndex();
+	if (slot < 0)
+	{
+		return L("Default");
+	}
+
+	return FormatText(L("Color %02d").c_str(), slot + 1);
 }
 
 // Centred single line, clipped rather than allowed to widen the cell.
@@ -1049,7 +1069,7 @@ void PaletteEditorWindow::ShowOnlinePaletteResetButton(Player& playerHandle, uin
 	const IMPL_data_t& palData = g_interfaces.pPaletteManager->GetCurrentPalData(charPalHandle);
 
 	ImGui::BeginGroup();
-	WrappedCenteredText(palInfo.palName);
+	WrappedCenteredText(PaletteDisplayName(palInfo, charPalHandle).c_str());
 	DrawPaletteSprite(charIndex, 0, palData.file0, kPaletteSpriteHeight);
 	ImGui::EndGroup();
 	ShowHoveredPaletteInfoToolTip(palInfo, charIndex, 0);
@@ -1139,7 +1159,7 @@ void PaletteEditorWindow::ShowPaletteSelectButton(Player& playerHandle, const ch
 	// Name and sprite share one hover region, so the palette's details come up wherever on
 	// the cell you happen to point at rather than only over the line of text.
 	ImGui::BeginGroup();
-	WrappedCenteredText(palInfo.palName);
+	WrappedCenteredText(PaletteDisplayName(palInfo, charPalHandle).c_str());
 	DrawPaletteSprite(charIndex, selected_pal_index,
 		PaletteDataForPreview(charPalHandle, charIndex, selected_pal_index), kPaletteSpriteHeight);
 	ImGui::EndGroup();
@@ -1290,7 +1310,7 @@ void PaletteEditorWindow::ShowPaletteSelectPopup(CharPaletteHandle& charPalHandl
 			DrawPaletteSpriteAt(charIndex, i, PaletteDataForPreview(charPalHandle, charIndex, i),
 				origin, cellWidth, kPalettePickSpriteHeight);
 
-			DrawWrappedCellLabel(palInfo.palName, origin, cellWidth,
+			DrawWrappedCellLabel(PaletteDisplayName(palInfo, charPalHandle).c_str(), origin, cellWidth,
 				kPalettePickSpriteHeight, labelHeight);
 
 			ImGui::EndGroup();

@@ -7,6 +7,7 @@
 #include "Game/Player.h"
 #include "Palette/CharPaletteHandle.h"
 
+#include <string>
 #include <vector>
 #include <ctime>
 
@@ -89,6 +90,13 @@ private:
 		const std::function<void()>& drawRight);
 	void ApplyPaletteSelection(CharPaletteHandle& charPalHandle, CharIndex charIndex, int palIndex);
 	const char* PaletteDataForPreview(CharPaletteHandle& charPalHandle, CharIndex charIndex, int palIndex);
+
+	// What to write under a palette preview. A custom palette has a name the user gave it;
+	// the "Default" placeholder does not - it means "the colour this player actually picked
+	// in character select", and saying "Default" tells you nothing about which of the 24
+	// that was. So it reads "Color 06" instead, from the native colour slot the handle
+	// captured at match init.
+	static std::string PaletteDisplayName(const IMPL_info_t& palInfo, const CharPaletteHandle& charPalHandle);
 	void PaletteThumbKey(char* out, size_t outSize, int palIndex, const char* paletteData);
 	void DrawWrappedCellLabel(const char* text, const ImVec2& origin, float cellWidth,
 		float labelTop, float labelHeight);
