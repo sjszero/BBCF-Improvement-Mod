@@ -274,16 +274,21 @@ const char* kindToString(FrameKind kind) {
     return "Idle";
 }
 
+// The bar draws these as unlabelled slices, so spell the attributes out rather
+// than handing back the one-letter codes nobody can decipher.
 std::string attributeToString(Attribute attr) {
     if (attr == Attribute::N) return "None";
     std::string res;
-    if (bool(attr & Attribute::GP)) res += "GP ";
-    if (bool(attr & Attribute::H))  res += "H ";
-    if (bool(attr & Attribute::B))  res += "B ";
-    if (bool(attr & Attribute::F))  res += "F ";
-    if (bool(attr & Attribute::T))  res += "T ";
-    if (bool(attr & Attribute::P))  res += "P ";
-    if (!res.empty() && res.back() == ' ') res.pop_back();
+    auto append = [&res](const char* name) {
+        if (!res.empty()) res += ", ";
+        res += name;
+    };
+    if (bool(attr & Attribute::GP)) append("Guard Point");
+    if (bool(attr & Attribute::H))  append("Head");
+    if (bool(attr & Attribute::B))  append("Body");
+    if (bool(attr & Attribute::F))  append("Foot");
+    if (bool(attr & Attribute::T))  append("Throw");
+    if (bool(attr & Attribute::P))  append("Projectile");
     return res;
 }
 
