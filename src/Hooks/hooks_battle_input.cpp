@@ -104,8 +104,18 @@ namespace
         if (configured < 0) { configured = 0; }
         if (configured > static_cast<int>(MAX_INPUT_DELAY_FRAMES)) { configured = static_cast<int>(MAX_INPUT_DELAY_FRAMES); }
 
+        // Frozen with the freeze-frame hotkey, the player is holding a button and stepping
+        // the game forward one frame at a time. A delay line makes that unusable: the press
+        // that should come out on the very next stepped frame instead sits in the queue for
+        // as many steps as the delay is deep, and steps are hand-driven, so it reads as the
+        // input having been eaten. The delay is there to reproduce online timing, and there
+        // is no online timing to reproduce while the game is not running.
+        const bool bypassWhileFrozen =
+            Settings::settingsIni.trainingInputDelayIgnoreWhenFrozen && g_gameVals.isFrameFrozen;
+
         const bool eligible =
             configured > 0 &&
+            !bypassWhileFrozen &&
             g_gameVals.pFrameCount != nullptr &&
             g_gameVals.pGameMode != nullptr &&
             *g_gameVals.pGameMode == GameMode_Training;
