@@ -2,8 +2,8 @@
   "exe": "C:\\Program Files (x86)\\Windows Kits\\10\\Debuggers\\x86\\cdb.exe",
   "args": [
     "-z",
-    "\"D:\\User\\Downloads\\IM Debugging\\FPS Lag\\Report 2 - Ramiro\\3\\backup bug\\BBCF_IM\\CrashReports\\Crash_20260803_193113\\crash.dmp\"",
-    "-cf",
-    "C:\\Users\\Usuario\\source\\repos\\HaiKamDesu\\BBCF-Improvement-Mod\\tools\\cdb_heap_crash_cmds.txt"
+    "\"D:\\SteamLibrary\\steamapps\\common\\BlazBlue Centralfiction\\BBCF_IM\\CrashReports\\Crash_20260914_220709\\crash.dmp\"",
+    "-c",
+    "\"!address;q\""
   ]
 }
