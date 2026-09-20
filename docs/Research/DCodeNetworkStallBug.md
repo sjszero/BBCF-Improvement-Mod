@@ -1451,3 +1451,45 @@ enough to beat the next outgoing request.
 
 Expected result now: recovery on the **first** attempt, seconds after the
 wedge, instead of the seventh.
+
+## 2026-09-20 fourth test: PASS — recovery in 3.5 seconds
+
+Session 16:42:26 → 16:48:23. The defence works, and it was caught doing its job:
+
+```
+16:46:06.002  !!! forcing a fresh user/login (..., 2/8 this session; login latch 1 -> 0)
+16:46:06.767  new session 67BB6E90 held against the rejected one 507CBC28
+16:46:06.921  login state 1 (user/login ok), latch=1
+16:46:07.439  tus/read response: {"session":"###...","result":1,...,"param":{"status":3}}   <- stale echo
+16:46:07.453  a stale response restored the rejected session; put the new one back (1)
+16:46:09.520  work manager result 8 (tus/write ok) sessionHash=E9CBAACD sessionLen=13
+16:46:09.520  recovered after 3 consecutive failure(s)
+16:46:09.603  [Upload] profile upload recovered after 1 consecutive failure(s), netcolor=2 counter=41
+```
+
+The overwrite happened exactly as modelled — a stale response echoed the
+rejected token back at 16:46:07.439 — and the defence undid it **14 ms later**.
+Two seconds after that the profile upload went through.
+
+**Trigger to recovery: 3.5 s**, against 10 minutes and 7 attempts before the
+defence existed. The session then stayed healthy to the end: reads at 16:48:11
+and 16:48:12, write at 16:48:15, upload #2 ok, counter steady at 41.
+
+Most importantly `[Upload] profile upload recovered` — the profile actually
+persisted. That is the whole point: the wedge no longer costs progress.
+
+### Remaining imperfection
+
+Attempt 1 (16:43:35) did not recover. No `held against` line was logged for it,
+so the defence never armed: the token never held a non-poisoned value at any
+frame boundary for it to snapshot. Recovery came on attempt 2.
+
+The 2.5-minute gap between the two attempts was **not** the cooldown (20 s) —
+no tus request was issued at all between 16:43:40 and 16:46:06 because the
+player was in a match. So the practical worst case is "recovers at the next
+profile request after the wedge", and that request is the match-end write —
+precisely the one that matters. No progress was lost even on the miss.
+
+Tightening attempt 1 is polish, not correctness: it would need the snapshot to
+key off the login-state transition rather than observing the token change, and
+that state is only sampled in the 200 ms poll.
