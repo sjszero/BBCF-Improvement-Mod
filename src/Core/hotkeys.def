@@ -47,7 +47,7 @@ HOTKEY(StepFrames, stepFramesKeybind, "stepFramesKeybind", "V",
 	"Advance one frame",
 	"While the match is frozen, moves forward exactly one frame. Hold it to creep forward slowly through a sequence.")
 
-HOTKEY(ReplayRewind, replayRewindKeybind, "ReplayRewindKeybind", "B",
+HOTKEY(ReplayRewind, replayRewindKeybind, "ReplayRewindKeybind", "R",
 	"Rewind the replay",
 	"While watching a replay, jumps back by the rewind interval set in Replay Extras. Press it again to keep going further back.")
 

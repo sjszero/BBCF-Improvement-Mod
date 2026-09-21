@@ -322,7 +322,7 @@ Active entities: %d,Active entities: %d,Activar entidades: %d
 Active entities with unk_status2 = 2: %d,Active entities with unk_status2 = 2: %d,Activar entidades con unk_status2 = 2: %d
 Only works during a running replay,Only works during a running replay,Solo funciona durante una replay
 Rewind,Rewind,Retroceder
-Rewind hotkey: %s,Rewind hotkey: %s,Tecla de rebobinado: %s
+Hotkey: %s,Hotkey: %s,Tecla: %s
 Replay rewind help tooltip,"Replay rewind can currently hold up to 10 ""checkpoints"" at a time to rewind to. These checkpoints are saved as the replay progresses at defined intervals(1s,3s or 9s). With replay interval set to 9s for example you will save checkpoints at second 0,9,18...,90.
 
 You can also change them during the replay itself to refine the rewind, say for example you found something interesting at second 16 while having rewind interval as 9s:

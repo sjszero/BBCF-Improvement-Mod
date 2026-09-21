@@ -146,7 +146,14 @@ namespace ReplayExtras
 
 		if (compact)
 		{
-			ImGui::HoverTooltipEvenDisabled(ready ? Messages.Replay_rewind_help_tooltip() : why);
+			// No tooltip on the button itself while it works - that is the (?) marker's job,
+			// and having both meant the explanation followed the cursor around the row. The
+			// hover survives only while the button is disabled, where it is not describing
+			// the feature but saying why you cannot press it.
+			if (!ready)
+			{
+				ImGui::HoverTooltipEvenDisabled(why);
+			}
 			ImGui::ShowHelpMarkerSameLine(Messages.Replay_rewind_help_tooltip());
 		}
 		else
@@ -175,14 +182,14 @@ namespace ReplayExtras
 		{
 			ImGui::ShowHelpMarkerSameLine(Messages.Rewind_interval_help_tooltip());
 		}
-		else
-		{
-			// The key exists whether this row is on screen or not, so say what it is where
-			// someone looking at the button will see it.
-			ImGui::TextDisabled("%s", FormatText(L("Rewind hotkey: %s").c_str(),
-				HotkeyManager::DisplayString(
-					HotkeyManager::GetBinding(HotkeyManager::Hotkey_ReplayRewind)).c_str()).c_str());
-		}
+
+		// What the key is, on the same row as the button it stands in for. Grey and last,
+		// because it is a label rather than a control - it is here so that nobody has to go
+		// looking through the Settings window to find out the rewind has a key at all.
+		ImGui::SameLine();
+		ImGui::TextDisabled("%s", FormatText(L("Hotkey: %s").c_str(),
+			HotkeyManager::DisplayString(
+				HotkeyManager::GetBinding(HotkeyManager::Hotkey_ReplayRewind)).c_str()).c_str());
 	}
 
 	bool PauseHudApplies()

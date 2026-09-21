@@ -12,7 +12,7 @@ SETTING(std::string, freezeFrameKeybind, "freezeFrameKeybind", "C");
 SETTING(std::string, stepFramesKeybind, "stepFramesKeybind", "V");
 // Replay Extras' "Rewind" button, as a key. Works while a replay is running whether or not
 // the Replay Extras window is on screen.
-SETTING(std::string, replayRewindKeybind, "ReplayRewindKeybind", "B");
+SETTING(std::string, replayRewindKeybind, "ReplayRewindKeybind", "R");
 // Shortcuts for sharing player-created rooms: copy puts a steam://joinlobby link for the
 // room you are in on the clipboard, join opens such a link from the clipboard so the Steam
 // client hands it back to the game. Both are inert while an ImGui text field has keyboard

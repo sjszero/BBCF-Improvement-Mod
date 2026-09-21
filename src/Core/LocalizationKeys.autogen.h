@@ -609,8 +609,8 @@ struct LocalizationKeysAccessor
         // Rewind
         inline const char* Rewind() const { return Get("Rewind"); }
 
-        // Rewind hotkey: %s
-        inline const char* Rewind_hotkey_s() const { return Get("Rewind hotkey: %s"); }
+        // Hotkey: %s
+        inline const char* Hotkey_s() const { return Get("Hotkey: %s"); }
 
         // Replay rewind help tooltip
         inline const char* Replay_rewind_help_tooltip() const { return Get("Replay rewind help tooltip"); }
