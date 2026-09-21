@@ -807,6 +807,47 @@ void ScrWindow::LoadTrainingState()
     BeginSetupDelay(wait_before_exec_s);
 }
 
+namespace {
+
+// The facing value the game will compare a playback slot's facing byte against.
+//
+// Worked out from the one place in the mod that has always got this right: Unlimited
+// Playback's TryGetCurrentFacingLeft, which reads P2 - and in Unlimited Playback P2 is the
+// dummy, i.e. the character the playback drives. So the comparison target is the character
+// EXECUTING the playback, not the side the human is on.
+//
+// That distinction is invisible in ordinary training, where the human is always P1 and the
+// dummy is always P2, and it is exactly what a takeover breaks: taking over as P2 flips the
+// training side, so the playback now drives P1. Reading the human's side there gives the
+// opposite answer, the game mirrors a stream that was already correct, and the playback
+// comes out backwards. Reported 2026-09-21 with that precise setup - replay paused with P1
+// on the right, taken over as P2 - and it is the whole of the old "Fix playback" button.
+//
+// facingLeft2 (CharData +0x2260) is the field annotated as the playback-flip comparand;
+// facingLeft (+0x0264) is the fallback for the frames where it holds neither 0 nor 1, which
+// is the same validation Unlimited Playback does.
+int PlaybackFacingOf(const CharData* charData)
+{
+    if (!charData)
+    {
+        return 0;
+    }
+    int facing = charData->facingLeft2;
+    if (facing != 0 && facing != 1)
+    {
+        facing = charData->facingLeft;
+    }
+    return facing != 0 ? 1 : 0;
+}
+
+// Whoever the replay is driving: the side you did NOT take over.
+const CharData* ReplayDrivenCharData(bool asP1)
+{
+    return asP1 ? g_interfaces.player2.GetData() : g_interfaces.player1.GetData();
+}
+
+} // namespace
+
 void ScrWindow::LoadReplayTakeoverState()
 {
     if (!g_gameVals.pGameMode || *g_gameVals.pGameMode != GameMode_Training) {
@@ -829,10 +870,7 @@ void ScrWindow::LoadReplayTakeoverState()
     // pressed several restarts ago.
     if (!facing_left_takeover_overridden)
     {
-        const CharData* mine = takeover_as_p1
-            ? g_interfaces.player1.GetData()
-            : g_interfaces.player2.GetData();
-        facing_left_replay_takeover = (mine && mine->facingLeft2 != 0) ? 1 : 0;
+        facing_left_replay_takeover = PlaybackFacingOf(ReplayDrivenCharData(takeover_as_p1));
     }
 
     // The diagnostic line for the "playback comes out mirrored" reports. Everything the
@@ -842,11 +880,16 @@ void ScrWindow::LoadReplayTakeoverState()
         const CharData* p1 = g_interfaces.player1.GetData();
         const CharData* p2 = g_interfaces.player2.GetData();
         LOG(1, "[Takeover] load: asP1=%d mirror=%d(override=%d) "
+               "replayDrivenFacing=%d yourFacing=%d "
                "p1.facingLeft=%d p1.facingLeft2=%d p2.facingLeft=%d p2.facingLeft2=%d "
                "trainingSide=%d slotForP1=%d slotForP2=%d frames=%u\n",
             takeover_as_p1 ? 1 : 0,
             facing_left_replay_takeover,
             facing_left_takeover_overridden ? 1 : 0,
+            // Both candidates, so one log line settles it if this is still wrong: the value
+            // used is replayDrivenFacing, and the old broken behaviour was yourFacing.
+            PlaybackFacingOf(ReplayDrivenCharData(takeover_as_p1)),
+            PlaybackFacingOf(takeover_as_p1 ? p1 : p2),
             p1 ? (int)p1->facingLeft : -1, p1 ? (int)p1->facingLeft2 : -1,
             p2 ? (int)p2->facingLeft : -1, p2 ? (int)p2->facingLeft2 : -1,
             // Same three bytes SaveTakeoverInputBinding captures; spelled out here because
@@ -2417,14 +2460,15 @@ void ScrWindow::BeginReplayTakeover(bool asP1) {
         replay_action_load.push_back(*(rpstart + (*g_gameVals.pFrameCount + i) * 2));
     }
 
-    // The facing byte a playback slot carries is read against the training side - the side
-    // you are on - not against the character replaying the inputs. Storing the replayed
-    // side's facing here (what the old code did) is therefore inverted whenever the two
-    // face each other, which is nearly always: that is the entire reason "Fix playback"
-    // existed and why flipping it fixed things "most of the time".
-    facing_left_replay_takeover = asP1
-        ? (g_interfaces.player1.GetData()->facingLeft2 != 0 ? 1 : 0)
-        : (g_interfaces.player2.GetData()->facingLeft2 != 0 ? 1 : 0);
+    // The facing byte a playback slot carries is read against the character the playback
+    // DRIVES - here, the side you did not take over. An earlier version of this claimed the
+    // comparison was against the training side and stored your own facing; that is the same
+    // answer only while the human is P1, and it is why taking over as P2 came out mirrored
+    // every time. See PlaybackFacingOf.
+    //
+    // Provisional: LoadReplayTakeoverState decides this again once the snapshot is back,
+    // which is the value that actually reaches the slot.
+    facing_left_replay_takeover = PlaybackFacingOf(ReplayDrivenCharData(asP1));
     // A fresh takeover starts from the automatic answer again, whatever the diagnostic
     // checkbox was left on for the previous one.
     facing_left_takeover_overridden = false;
