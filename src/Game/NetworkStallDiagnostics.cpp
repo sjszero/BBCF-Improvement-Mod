@@ -246,7 +246,9 @@ namespace
 	uint32_t g_poisonedSessionHash = 0;
 	bool g_haveGoodSnapshot = false;
 	ULONGLONG g_sessionDefenceUntilMs = 0;
+	unsigned g_reloginTickMark = 0;
 	int g_sessionRestores = 0;
+	uint32_t g_lastDefenceHash = 0;
 
 
 	typedef void(__fastcall* CNetworkerUpdateFn)(void* self, void* unused);
@@ -254,6 +256,7 @@ namespace
 	CNetworkerUpdateFn g_originalCNetworkerUpdate = nullptr;
 	void** g_cNetworkerUpdateSlot = nullptr;
 	DWORD g_strategyTickThreadId = 0;
+	unsigned g_strategyTicks = 0;
 	DWORD g_gameThreadId = 0;
 	bool g_strategyTickProbeInstalled = false;
 
@@ -532,6 +535,7 @@ namespace
 
 	void __fastcall CNetworkerUpdateTrampoline(void* self, void* unused)
 	{
+		++g_strategyTicks;
 		const DWORD tid = GetCurrentThreadId();
 		if (tid != g_strategyTickThreadId)
 		{
@@ -684,14 +688,20 @@ namespace
 		g_reloginGraceUntilMs = now + kReloginGraceMs;
 		g_sessionDefenceUntilMs = now + kSessionDefenceMs;
 		g_haveGoodSnapshot = false;
+		g_lastDefenceHash = 0;
 		{
 			const uint8_t* const poisoned = WebApiClient(moduleBase);
 			g_poisonedSessionHash = (poisoned != nullptr)
 				? WebApiSessionFingerprint(poisoned, nullptr) : 0;
 		}
+		// 2026-09-20: a run where the defence never armed. Either the token never
+		// held a good value, or the ticker that drives the defence was not
+		// running (this happened during match load). Record the tick count so
+		// the next capture distinguishes them instead of leaving it open.
+		g_reloginTickMark = g_strategyTicks;
 		IncidentPrintf("[WebApi] !!! forcing a fresh user/login (%s, %d/%d this session;"
-			" login latch %u -> 0)\n",
-			reason, g_reloginsThisSession, kMaxReloginsPerSession, latchBefore);
+			" login latch %u -> 0, tickerTicks=%u)\n",
+			reason, g_reloginsThisSession, kMaxReloginsPerSession, latchBefore, g_strategyTicks);
 		startLogin(workMgr, nullptr);
 	}
 
@@ -711,6 +721,17 @@ namespace
 		}
 		size_t length = 0;
 		const uint32_t current = WebApiSessionFingerprint(client, &length);
+
+		// Inside the window only, so the volume stays trivial: without this a
+		// token that flips good and is overwritten between two result lines
+		// leaves no trace at all, which is what made the 2026-09-20 run
+		// ambiguous.
+		if (current != g_lastDefenceHash)
+		{
+			IncidentPrintf("[WebApi] session %08X -> %08X during the defence window (tick %u)\n",
+				g_lastDefenceHash, current, g_strategyTicks - g_reloginTickMark);
+			g_lastDefenceHash = current;
+		}
 
 		if (!g_haveGoodSnapshot)
 		{
@@ -1772,6 +1793,13 @@ void NetworkStallDiagnostics::OnUpdate()
 		g_gameThreadId = GetCurrentThreadId();
 		InstallStrategyTickProbe(moduleBase);
 		SampleWorkMgrLoginState(moduleBase);
+		// Also from here, not just the ticker. The ticker is
+		// AASTEAM_CNetworker::Update, and there is no guarantee it runs in every
+		// game context -- the 2026-09-20 run wedged during match load and the
+		// defence never armed once. This poll is driven off the overlay update,
+		// so it keeps running when the networker does not. Whichever fires
+		// first wins; the function is idempotent.
+		DefendReloginSession(moduleBase);
 		MaybeForceSessionWedge(moduleBase);
 		SampleWorkMgrState(moduleBase);
 

@@ -1535,3 +1535,67 @@ the caller, so `[WebApi] re-armed N wedged slot(s)` distinguishes it from the
 latch path's `[TusGate] re-armed ...`.
 
 The D-Code should now return inside the same match rather than the next one.
+
+## 2026-09-20 fifth test: recovery did NOT fire, and there was no crash
+
+Session 21:06:34 → 21:23:02, build `32aa9ce7` (clean). Mod fully initialised
+this time (`SteamAPI_Init` 1, `WindowManager::Initialize` 3, probe installed),
+so the earlier no-GUI launches were the `2f22758e-dirty` build, not a
+regression — see below.
+
+### No crash occurred
+
+All three triage layers are clean for the window:
+
+- `DEBUG.txt` ends through the full clean path — `BBCF_IM_Shutdown` →
+  `WindowManager::Shutdown` → `CleanupInterfaces` → `BBCF_FIX STOP`
+- newest `BBCF_IM/CrashReports/` folder is 2026-09-14
+- no Application/System error events since 20:00 local
+- newest WER `AppCrash_BBCF.exe_*` is **2026-09-05**
+
+`DLL_PROCESS_DETACH` ran, which neither a fault nor a Task Manager kill
+produces. The process exited in an orderly way at `gameMode=15 gameState=14
+round=intro` — the match loading screen. The game quit; it did not crash.
+
+### The recovery did not complete
+
+```
+21:22:29.558 TEST: DCodeForceSessionWedge corrupted the session token
+21:22:48.553 result 11 ... sessionHash=D382B3C5
+21:22:49.285 !!! forcing a fresh user/login (1/8; login latch 1 -> 0)
+21:22:50.053 login state 1 (user/login ok), latch=1
+21:22:54.345 result 11 ... sessionHash=D382B3C5      <- unchanged
+```
+
+The login succeeded and the session hash never moved off the poisoned value
+across all six results spanning 21:22:48–21:22:54. **No `new session … held
+against` line at all**, so `DefendReloginSession` never armed.
+
+Two candidates, and the capture cannot separate them:
+
+1. the login genuinely minted no new token, or
+2. the defence was not running, so a brief good value went unobserved
+
+Candidate 2 is plausible and specific: the defence ran *only* from the ticker
+trampoline, the ticker is `AASTEAM_CNetworker::Update`, and this wedge happened
+**during match load** — there is no guarantee the networker updates in that
+context. The successful 16:46 run was in the lobby, where it clearly does.
+
+The 1.8 s gaps between result lines are also wide enough to hide a flip, and
+`WatchWebApiSession` no longer logs rotations (only length changes), so nothing
+recorded one either way.
+
+### Three changes
+
+1. **Run the defence from the 200 ms poll as well as the ticker.** The poll is
+   driven off the overlay update and keeps running when the networker does not.
+   Whichever fires first wins; the function is idempotent. This is the actual
+   fix if candidate 2 is right.
+2. **Count ticker invocations** and print the count with the re-login
+   (`tickerTicks=N`). If that number stops advancing across a failing window,
+   candidate 2 is proven outright rather than argued.
+3. **Log every token change inside the defence window**, with the tick offset.
+   Window-scoped so the volume stays trivial, and a flip can no longer hide
+   between two result lines.
+
+Next capture distinguishes the two candidates by itself.
