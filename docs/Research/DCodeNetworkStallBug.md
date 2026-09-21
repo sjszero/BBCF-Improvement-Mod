@@ -1599,3 +1599,59 @@ recorded one either way.
    between two result lines.
 
 Next capture distinguishes the two candidates by itself.
+
+## 2026-09-20 sixth test: PASS, with the mechanism visible frame by frame
+
+Session 21:41:21 → 21:47:15, build `b8e57e54`. Clean shutdown, no crash.
+
+The new window logging shows the whole thing happening, two frames wide:
+
+```
+21:42:33.865 !!! forcing a fresh user/login (1/8; login latch 1 -> 0, tickerTicks=4100)
+21:42:34.597 session F3591994 -> D7218029 during the defence window (tick 44)   <- login minted it
+21:42:34.598 new session D7218029 held against the rejected one F3591994
+21:42:34.626 session D7218029 -> F3591994 during the defence window (tick 46)   <- stale response stole it
+21:42:34.626 a stale response restored the rejected session; put the new one back (1)
+21:42:34.647 session F3591994 -> D7218029 during the defence window (tick 47)   <- defence won
+```
+
+Two frames from theft to restoration. The same pattern repeated on attempt 2
+at ticks 87→88, and then:
+
+```
+21:44:50.738 work manager result 8 (tus/write ok) sessionHash=AADD805A
+21:44:50.738 recovered after 4 consecutive failure(s)
+21:44:50.738 re-armed 1 wedged slot(s) and reset all retry budgets
+21:44:50.930 [Upload] profile upload recovered ..., netcolor=2 counter=41
+```
+
+**The `re-armed` line is the polish working** — exactly one slot was still
+wedged and got un-wedged the moment the transport came back, instead of
+waiting for the next match. Session healthy afterwards: reads at 21:44:54,
+21:46:55, 21:46:57, write at 21:47:00, upload #2, counter steady at 41.
+
+### The ticker was alive, so the previous run stays unexplained
+
+`tickerTicks=4100` at attempt 1 and `11976` at attempt 2 — ~7900 ticks over
+2m14s, i.e. ~59/s, the frame rate. So candidate 2 (dead ticker) is ruled out
+**for this run**. The 21:22 failure remains unexplained; the poll-driven
+defence added in `b8e57e5` covers that case either way, but it was not the
+thing that saved this run and should not be credited for it.
+
+### Recovery took 2m17s, not 3.5s
+
+Attempt 1 armed, held the token, and reads appear to have come back — but
+`tus/write` kept returning status 3 and the work-manager result stayed 11, so
+the failure counter never cleared. Full recovery came on attempt 2, two
+minutes later, when the next match-end write went out.
+
+Why attempt 1 did not finish cannot be read off this capture: the `tus/read`
+responses at 21:42:37 and 21:42:38 were 33329 bytes and logged as
+"undecodable envelope" — and those are precisely the ones that would say
+whether the read had recovered. The `break`-on-overflow fix was not enough;
+something else about those responses fails the decode.
+
+Added: on a decode failure the log now reports whether the 32-char prefix is
+hex and shows the first 40 characters. The prefix is an MD5 over the payload,
+not a credential, and 8 base64 characters past it decode to ~6 plaintext
+bytes — nowhere near the session value.

@@ -1107,9 +1107,26 @@ namespace
 		}
 		else
 		{
-			// Deliberately no payload here -- see DecodeWebApiResponse.
-			IncidentPrintf("[WebApi] %s response: undecodable envelope, %d bytes (payload withheld)\n",
-				label, static_cast<int>(bodyLength));
+			// Deliberately no payload here -- see DecodeWebApiResponse. The hash
+			// prefix is safe to show (it is an MD5 over the payload, not a
+			// credential) and says whether the envelope even has the expected
+			// shape; 8 base64 characters after it decode to ~6 plaintext bytes,
+			// far short of the session value, and are enough to tell a JSON
+			// envelope from something else entirely. Added 2026-09-20: large
+			// successful reads keep landing here, and they are exactly the
+			// responses needed to tell whether a read recovered.
+			char prefix[41] = {};
+			const size_t show = (copy < 40) ? copy : 40;
+			memcpy(prefix, rawBody, show);
+			bool hashLooksHex = copy >= kEnvelopeHashChars;
+			for (size_t i = 0; hashLooksHex && i < kEnvelopeHashChars; ++i)
+			{
+				const char c = rawBody[i];
+				hashLooksHex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+			}
+			IncidentPrintf("[WebApi] %s response: undecodable envelope, %d bytes"
+				" (hashLooksHex=%d, prefix='%s', payload withheld)\n",
+				label, static_cast<int>(bodyLength), hashLooksHex ? 1 : 0, prefix);
 		}
 	}
 
