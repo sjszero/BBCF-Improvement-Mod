@@ -6,6 +6,7 @@
 #include "Core/Settings.h"
 #include "Core/utils.h"
 #include "Game/gamestates.h"
+#include "Game/OnlineInputDelay.h"
 #include "Overlay/imgui_utils.h"
 #include "Overlay/WindowContainer/WindowContainer.h"
 #include "Overlay/Window/Ranked/RankedProgressWindow.h"
@@ -19,6 +20,77 @@ namespace MainMenu
 {
 	namespace
 	{
+		// The one netcode number the game exposes, and the one place it is safe to expose it.
+		//
+		// The slider only goes down to 2 because below-stock delay is not a setting that
+		// affects the person changing it - it shifts rollback onto the opponent and onto
+		// spectators. The reasoning, and the byte this writes, are in
+		// src/Game/OnlineInputDelay.h; do not widen the range here without reading it.
+		void DrawOnlineInputDelay()
+		{
+			Anchor(Online_InputDelay);
+
+			const bool available = OnlineInputDelay::IsAvailable();
+			const bool belowStock = OnlineInputDelay::BelowStockAllowed();
+			const int minimum = belowStock ? 0 : OnlineInputDelay::kStockDelay;
+
+			ImGui::TextUnformatted(L("Online input delay").c_str());
+			ImGui::ShowHelpMarkerSameLine(L("How many frames your inputs are held back in an online match. The game always uses 2. More delay means less rollback for both players and more lag for you - the trade worth making on a bad connection. It takes effect on your next online match, not this one.").c_str());
+
+			if (!available)
+			{
+				Unavailable(L("This build cannot find the place in the game where the delay is set, so this does nothing. Check DEBUG.txt."));
+				return;
+			}
+
+			int delay = Settings::settingsIni.onlineInputDelay;
+			if (delay < minimum) { delay = minimum; }
+			if (delay > OnlineInputDelay::kMaxDelay) { delay = OnlineInputDelay::kMaxDelay; }
+
+			// The slider takes whatever width the page has, between a floor that keeps the
+			// handle usable and a ceiling that stops nine notches being stretched across a
+			// maximised window. A fixed width was wrong at both ends: it ran off the right
+			// edge of a narrow mod menu and looked stranded in a wide one.
+			ImGui::HorizontalSpacing();
+			float sliderWidth = ImGui::GetContentRegionAvail().x;
+			if (sliderWidth > 260.0f) { sliderWidth = 260.0f; }
+			if (sliderWidth < 90.0f) { sliderWidth = 90.0f; }
+			ImGui::SetNextItemWidth(sliderWidth);
+
+			if (ImGui::SliderInt("##online_input_delay", &delay, minimum, OnlineInputDelay::kMaxDelay,
+					delay == OnlineInputDelay::kStockDelay
+						? L("%d frames (the game's own)").c_str()
+						: L("%d frames").c_str()))
+			{
+				Settings::settingsIni.onlineInputDelay = delay;
+				Settings::changeSetting("OnlineInputDelay", std::to_string(delay));
+			}
+
+			// Say what it costs, in the direction they are actually moving it. All of these
+			// are full sentences, so they wrap with the page rather than being clipped.
+			if (delay > OnlineInputDelay::kStockDelay)
+			{
+				Hint(FormatText(
+					L("%d frames more lag than normal, and less rollback for both of you.").c_str(),
+					delay - OnlineInputDelay::kStockDelay));
+			}
+			else if (delay < OnlineInputDelay::kStockDelay)
+			{
+				ImGui::HorizontalSpacing();
+				ImGui::TextColoredWrapped(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "%s",
+					L("Below the game's own delay. This does not make you faster - it makes your inputs reach your opponent later, so they and anyone spectating get the extra rollback. For testing only.").c_str());
+			}
+			else
+			{
+				Hint(L("What the game does on its own."));
+			}
+
+			if (!belowStock)
+			{
+				Hint(L("2 is the lowest this goes. Lower values are a testing knob and need in-development features turned on."));
+			}
+		}
+
 		void DrawAvatar()
 		{
 			if (g_gameVals.playerAvatarAddr == NULL && g_gameVals.playerAvatarColAddr == NULL
@@ -120,5 +192,8 @@ namespace MainMenu
 			g_modVals.enableForeignPalettes = loadForeignPalettes;
 		}
 		ImGui::ShowHelpMarkerSameLine(L("Turn this off if your game crashes when you search for a ranked match from training mode. It only stops other players' custom colours from loading; yours are unaffected. This is a stopgap, not the real fix.").c_str());
+
+		ImGui::VerticalSpacing(8);
+		DrawOnlineInputDelay();
 	}
 }

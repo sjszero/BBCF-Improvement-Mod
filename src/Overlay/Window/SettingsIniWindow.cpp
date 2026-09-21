@@ -77,6 +77,7 @@ namespace {
 		{ "RankedListNetworkFilter", "Minimum connection quality", "Ranked list", "Hides ranked players whose connection rating to you is below this level. 0 shows everyone. Players whose rating has not been measured yet stay visible until it is." },
 		{ "HideUnmetRequirementRooms", "Hide rooms you cannot join", "Ranked list", "Hides rooms that demand a better connection than yours, so everything left in the list is actually joinable." },
 		{ "LoadForeignPalettesToggleDefault", "Show other players' palettes by default", "Palettes", "Whether custom colours made by other players are shown when you start the game. You can still flip this per session from the palette menu." },
+		{ "OnlineInputDelay", "Online input delay (frames)", "Netcode", "How many frames your own inputs are held back in online matches. The game always uses 2. Raising it gives both you and your opponent less rollback and gives you more input lag, which is the trade worth making on a bad connection. It cannot be set below 2, because a lower number does not speed you up - it makes your inputs reach your opponent later and pushes the rollback onto them and onto anyone spectating. Takes effect on your next online match." },
 		{ "AllowPaletteDownloads", "Let others save your palette", "Palettes", "Whether other players can save the custom colours they see you using. \"Not chosen yet\" means the mod will ask you once in-game." },
 		{ "CustomPalettesInCharSelect", "Show custom colours on character select", "Palettes", "Makes the colour preview on the character select screen use your custom palettes, so it matches what you will actually see in the match. The mod writes a modified copy of one of the game's data files into its own folder to do this - nothing the game shipped is changed. Turn it off if you would rather it did not write that file." },
 		{ "SwapControllerPos", "Swap player 1 and 2 controllers", "Controller", "Swaps which physical controller counts as player 1 and which as player 2. Currently forced off at startup because it can crash the game; turn it on again during a session if you need it." },
@@ -237,6 +238,7 @@ namespace {
 		{ "Training",              SPage_Training },
 		{ "Playback loop",         SPage_Training },
 
+		{ "Netcode",               SPage_Online },
 		{ "Lobby",                 SPage_Online },
 		{ "Ranked",                SPage_Online },
 		{ "Ranked list",           SPage_Online },

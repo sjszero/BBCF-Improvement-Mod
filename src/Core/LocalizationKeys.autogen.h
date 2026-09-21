@@ -3261,6 +3261,33 @@ struct LocalizationKeysAccessor
         // Load other players' custom palettes
         inline const char* Load_other_players_custom_palettes() const { return Get("Load other players' custom palettes"); }
 
+        // Online input delay
+        inline const char* Online_input_delay() const { return Get("Online input delay"); }
+
+        // How many frames your inputs are held back in an online match. The game always uses 2. More delay means less rollback for both players and more lag for you - the trade worth making on a bad connection. It takes effect on your next online match, not this one.
+        inline const char* How_many_frames_your_inputs_are_held_back_in_an_online_match_The_game_always_uses_2_More_delay_means_less_rollback_for_both_players_and_more_lag_for_you_the_trade_worth_making_on_a_bad_connection_It_takes_effect_on_your_next_online_match_not_this_one() const { return Get("How many frames your inputs are held back in an online match. The game always uses 2. More delay means less rollback for both players and more lag for you - the trade worth making on a bad connection. It takes effect on your next online match, not this one."); }
+
+        // This build cannot find the place in the game where the delay is set, so this does nothing. Check DEBUG.txt.
+        inline const char* This_build_cannot_find_the_place_in_the_game_where_the_delay_is_set_so_this_does_nothing_Check_DEBUG_txt() const { return Get("This build cannot find the place in the game where the delay is set, so this does nothing. Check DEBUG.txt."); }
+
+        // %d frames (the game's own)
+        inline const char* d_frames_the_game_s_own() const { return Get("%d frames (the game's own)"); }
+
+        // %d frames
+        inline const char* d_frames() const { return Get("%d frames"); }
+
+        // %d frames more lag than normal, and less rollback for both of you.
+        inline const char* d_frames_more_lag_than_normal_and_less_rollback_for_both_of_you() const { return Get("%d frames more lag than normal, and less rollback for both of you."); }
+
+        // Below the game's own delay. This does not make you faster - it makes your inputs reach your opponent later, so they and anyone spectating get the extra rollback. For testing only.
+        inline const char* Below_the_game_s_own_delay_This_does_not_make_you_faster_it_makes_your_inputs_reach_your_opponent_later_so_they_and_anyone_spectating_get_the_extra_rollback_For_testing_only() const { return Get("Below the game's own delay. This does not make you faster - it makes your inputs reach your opponent later, so they and anyone spectating get the extra rollback. For testing only."); }
+
+        // What the game does on its own.
+        inline const char* What_the_game_does_on_its_own() const { return Get("What the game does on its own."); }
+
+        // 2 is the lowest this goes. Lower values are a testing knob and need in-development features turned on.
+        inline const char* _2_is_the_lowest_this_goes_Lower_values_are_a_testing_knob_and_need_in_development_features_turned_on() const { return Get("2 is the lowest this goes. Lower values are a testing knob and need in-development features turned on."); }
+
         // Lobby avatar
         inline const char* Lobby_avatar() const { return Get("Lobby avatar"); }
 

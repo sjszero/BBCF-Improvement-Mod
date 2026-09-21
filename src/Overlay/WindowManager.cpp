@@ -19,6 +19,7 @@
 #include "Window/WinePopupWindow.h"
 
 #include "Game/EntityDiagnostics.h"
+#include "Game/OnlineInputDelay.h"
 #include "Game/ReplayPauseHud.h"
 #include "Game/gamestates.h"
 #include "Game/FrameStallDiagnostics.h"
@@ -958,6 +959,11 @@ void WindowManager::HandleButtons()
 	{
 		scr->TickSaveStateHotkeys();
 	}
+
+	// One integer compare in the common case. Polled rather than pushed because the value
+	// can change from the Settings window, the mod menu or settings.ini by hand, and this
+	// way none of them has to remember to tell the patch about it.
+	OnlineInputDelay::EnsureApplied();
 
 	// Same reason: freezing the match, stepping a frame, and rewinding a replay were all
 	// read from inside the control that draws them, so each one only worked while the mod

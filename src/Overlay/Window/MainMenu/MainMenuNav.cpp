@@ -47,6 +47,7 @@ namespace MainMenu
 			{ Page_Online, Item_Group,   "Room settings",                       "rematch ft2 ft3 ft5 ft10 room host" },
 			{ Page_Online, Item_Group,   "Lobby avatar",                        "avatar icon color accessory lobby" },
 			{ Page_Online, Item_Loose,   "Load other players' custom palettes", "foreign palettes crash ranked stability stopgap" },
+			{ Page_Online, Item_Loose,   "Online input delay",                  "delay frames netcode rollback ggpo lag ping input" },
 
 			{ Page_Replays, Item_Section, "Rewind",           "rewind replay theater scrub back extras window" },
 			{ Page_Replays, Item_Section, "Replay files",     "local replays load archive replay theater database download" },

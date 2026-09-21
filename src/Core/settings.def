@@ -198,6 +198,14 @@ SETTING(int, rankedListNetworkFilter, "RankedListNetworkFilter", "0");
 SETTING(bool, hideUnmetRequirementRooms, "HideUnmetRequirementRooms", "0");
 SETTING(bool, loadforeignpalettes, "LoadForeignPalettesToggleDefault", "1");
 // -1 = unset (the mod asks once via an in-game popup), 0 = deny, 1 = allow.
+// Frames of GGPO input delay in online matches. The game hardcodes 2 regardless of ping.
+// Higher means less rollback for both sides and more input lag for you; it is the setting
+// for a bad connection. Lower is NOT the mirror image of that - GGPO stamps your input as
+// frame (F + delay), so a smaller number makes your inputs arrive later relative to the
+// opponent's simulation and pushes the rollback onto them and onto spectators. So 2 is the
+// floor unless EnableInDevelopmentFeatures is on, and 8 (the prediction cap) is the ceiling.
+// Applied to the next session, not the one in progress. See src/Game/OnlineInputDelay.h.
+SETTING(int, onlineInputDelay, "OnlineInputDelay", "2");
 SETTING(int, allowPaletteDownloads, "AllowPaletteDownloads", "-1");
 SETTING(bool, customPalettesInCharSelect, "CustomPalettesInCharSelect", "1");
 SETTING(int, takeoverInputSlot, "TakeoverInputSlot", "0");
