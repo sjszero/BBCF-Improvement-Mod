@@ -295,10 +295,17 @@ bool ParsePlaybackBytes(
         out->facingLeft = (flags & 0x1) != 0;
         out->frames.assign(data.begin() + 8, data.end());
     } else {
-        if (outFailureReason) {
-            *outFailureReason = L("Playback file header is missing.");
+        // No header: the plain .playback format that Export Playback, the replay capture
+        // and the old slot saves all write - one facing byte, then one input byte per frame.
+        // The library holds the slot's raw two bytes per frame, so each input gets the zero
+        // aux byte PlaybackSlot::load_into_slot gives it.
+        out->facingLeft = data[0] != 0;
+        out->frames.clear();
+        out->frames.reserve((data.size() - 1) * 2);
+        for (size_t i = 1; i < data.size(); ++i) {
+            out->frames.push_back(data[i]);
+            out->frames.push_back(0);
         }
-        return false;
     }
 
     if (out->frames.size() > static_cast<size_t>(UnlimitedPlaybackManager::kMaxFramesPerPlayback) * 2) {

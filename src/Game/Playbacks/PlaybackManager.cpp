@@ -132,8 +132,19 @@ bool PlaybackManager::load_playback_from_path(const std::string& path,
         return false;
     }
 
-    *out_facing = data[0];
-    out_trimmed->assign(data.begin() + 1, data.end());
+    // A file exported from the Playback Library carries an 8-byte "UPB2" header (version,
+    // flags with the facing in bit 0, reserved) and then the slot's raw two bytes per frame.
+    // Read as the headerless format, the header turns into garbage frames.
+    if (size >= 8 && data[0] == 'U' && data[1] == 'P' && data[2] == 'B' && data[3] == '2') {
+        *out_facing = static_cast<char>(data[6] & 0x1);
+        out_trimmed->clear();
+        for (size_t i = 8; i < data.size(); i += 2) {
+            out_trimmed->push_back(data[i]);
+        }
+    } else {
+        *out_facing = data[0];
+        out_trimmed->assign(data.begin() + 1, data.end());
+    }
     // Same cap PlaybackSlot enforces when loading (kMaxPlaybackFramesPerSlot there), so a
     // long or corrupt file is truncated here rather than at the memcpy.
     const size_t maxFrames = 1200;

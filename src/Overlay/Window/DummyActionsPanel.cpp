@@ -1220,7 +1220,8 @@ namespace
 		}
 		NativeFileDialog::Request request;
 		request.title = L("Choose a playback file");
-		request.filters.push_back({ L("Playback file (*.bin)"), "*.bin" });
+		request.filters.push_back({ L("Playback file"), "*.playback" });
+		request.defaultExtension = "playback";
 		if (NativeFileDialog::Open(kFileDialogToken, request))
 		{
 			g_filePickTrigger = trigger;

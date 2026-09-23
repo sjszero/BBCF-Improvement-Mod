@@ -63,8 +63,10 @@ CompatibilityManager::Result CompatibilityManager::EvaluatePlayback(const FileVe
     r.current = CurrentPlaybackVersion();
 
     if (!hasHeader) {
-        r.action = Action_Reject;
-        r.reason = "Playback file header is missing.";
+        // The headerless .playback format is still what Export Playback and the replay
+        // capture write, so it is loaded as-is rather than treated as a version to migrate.
+        r.action = Action_Load;
+        r.reason = "Headerless playback file.";
         r.canForce = false;
         return r;
     }
