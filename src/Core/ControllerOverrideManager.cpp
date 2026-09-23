@@ -3817,8 +3817,13 @@ bool ControllerOverrideManager::CollectDevices()
         std::vector<ControllerDeviceInfo> devices;
         devices.push_back({ GUID_SysKeyboard, "Keyboard", true, false, WINMM_INVALID_ID });
 
+        // WinMM is deliberately not enumerated. The joy* API runs on the legacy dinput.dll,
+        // not the dinput8 the game uses, and that one's HID parser (CHid_InitAxisClass)
+        // overruns the heap for some pads - a Victrix Pro BFG (VID 0E6F PID 021A) crashed
+        // BBCF on boot and on hot-plug from inside joyGetDevCapsW. Nothing else in the
+        // process touches that path, and all it ever fed was an unread winmmId and a
+        // log-only heuristic, so leaving it empty costs nothing.
         std::vector<ControllerDeviceInfo> winmmDevices;
-        TryEnumerateWinmmDevices(winmmDevices);
 
         // Optional: map WinMM IDs onto DI devices by name
         auto findWinmmIdByName = [&](const std::string& name) -> UINT {
