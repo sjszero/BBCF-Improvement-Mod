@@ -42,6 +42,25 @@ BOX_WIDTH = 160
 BOX_HEIGHT = 200
 # Height the character itself is scaled to, leaving a little air top and bottom.
 FIGURE_HEIGHT = 188
+# Hand-tuned framing, on top of the automatic fit: (scale, dx, dy) applied about the
+# thumbnail's centre, in thumbnail pixels, exactly as the palette editor's development
+# thumbnail tuner shows them (right-click a character in its first step, with
+# EnableInDevelopmentFeatures on). Scale > 1 crops into the figure, for characters the
+# automatic fit leaves small because a weapon makes them wide. Tuned by eye, 2026-09-23.
+FRAMING_OVERRIDES = {
+    "no": (1.17, 0.0, -16.4),   # Noel
+    "bn": (1.62, 51.1, 0.0),    # Bang
+    "ha": (1.64, 53.8, 0.0),    # Hakumen
+    "kg": (1.86, 70.8, 1.7),    # Kagura
+    "es": (1.69, 73.4, 0.0),    # Es
+}
+
+# Room kept clear at the left and right edges when a figure is shifted to fit.
+SIDE_MARGIN = 3
+# A figure wider than the canvas (a sword, a spear) is shrunk until all of it fits and is
+# centred as a whole. Kagura and Es hold swords as long as they are tall: any crop or
+# body-centred offset cuts the sword and leaves the picture lopsided, while a slightly
+# smaller but complete figure reads correctly in a grid cell.
 
 # Asset tag per CharIndex. Derived by byte-matching the mod's own default palette
 # templates against each shipped char_XX_pal.pac; see src/Palette/PaletteSheet.cpp.
@@ -189,20 +208,46 @@ def body_centre_x(pixels, width, left, top, crop_w, crop_h):
     return (weighted // total) if total else (left + crop_w // 2)
 
 
-def render_thumbnail(pixels, width, left, top, crop_w, crop_h):
+def render_thumbnail(pixels, width, left, top, crop_w, crop_h, framing=(1.0, 0.0, 0.0)):
     """Scale the figure to FIGURE_HEIGHT and stamp it into a fixed canvas.
 
     Sampling is modal - the most common index in each source block wins, and index 0
     never wins - because these are palette indices, not colours: averaging them is
     meaningless, and keeping them is what lets one sprite serve every palette.
-    Anything that overflows the canvas horizontally (a held weapon) is clipped, which
-    keeps every character the same size and standing on the same line.
+    A figure too wide for the canvas (a held weapon) is slid sideways to fit, or when that
+    is not enough, shrunk until it fits and centred as a whole.
     """
-    scale = FIGURE_HEIGHT / float(crop_h)
+    height_scale = FIGURE_HEIGHT / float(crop_h)
+    usable_width = BOX_WIDTH - 2 * SIDE_MARGIN
+    scale = min(height_scale, usable_width / float(crop_w))
     out = bytearray(BOX_WIDTH * BOX_HEIGHT)
 
     baseline = BOX_HEIGHT - (BOX_HEIGHT - FIGURE_HEIGHT) // 2  # feet sit here
+    if scale < height_scale:
+        # Shrunk to fit its width, it would sit on the floor line under a band of empty
+        # canvas; centred in the cell it reads as framed rather than dropped.
+        baseline = int(BOX_HEIGHT / 2.0 + crop_h * scale / 2.0)
     centre = body_centre_x(pixels, width, left, top, crop_w, crop_h)
+
+    # Centred on the body, then slid sideways as little as it takes to keep the whole
+    # figure on the canvas: a weapon held out to one side pushes the body off-centre a
+    # little instead of being cut off. A figure that had to be shrunk to fit is centred
+    # as a whole instead - it fills the width, so there is nothing to slide.
+    figure_left = BOX_WIDTH / 2.0 + (left - centre) * scale
+    figure_right = BOX_WIDTH / 2.0 + (left + crop_w - centre) * scale
+    if scale < height_scale:
+        shift = (BOX_WIDTH - figure_left - figure_right) / 2.0
+    else:
+        shift = max(SIDE_MARGIN - figure_left, min(0.0, BOX_WIDTH - SIDE_MARGIN - figure_right))
+
+    # The hand-tuned framing, folded into the mapping rather than applied to the finished
+    # image: scaling about the centre by s and moving by (dx, dy) is the same as scaling
+    # the source by s more, with the shift and floor line moved to match - so a figure
+    # enlarged this way is re-sampled from the full-size sprite, not blown up.
+    s_adjust, dx_adjust, dy_adjust = framing
+    scale *= s_adjust
+    shift = dx_adjust + shift * s_adjust
+    baseline = BOX_HEIGHT / 2.0 + dy_adjust + (baseline - BOX_HEIGHT / 2.0) * s_adjust
 
     for ty in range(BOX_HEIGHT):
         # Canvas row -> source row, measured up from the baseline.
@@ -215,9 +260,9 @@ def render_thumbnail(pixels, width, left, top, crop_w, crop_h):
         sy1 = min(sy1, top + crop_h)
 
         for tx in range(BOX_WIDTH):
-            src_x = centre + int((tx - BOX_WIDTH / 2.0) / scale)
+            src_x = centre + int((tx - BOX_WIDTH / 2.0 - shift) / scale)
             sx0 = src_x
-            sx1 = max(sx0 + 1, centre + int((tx + 1 - BOX_WIDTH / 2.0) / scale))
+            sx1 = max(sx0 + 1, centre + int((tx + 1 - BOX_WIDTH / 2.0 - shift) / scale))
             if sx1 <= left or sx0 >= left + crop_w:
                 continue
             sx0 = max(sx0, left)
@@ -259,7 +304,8 @@ def build_thumbnail(char_dir, tag):
     width, height, pixels = decode_hip(sprites[idle_name])
     left, top, crop_w, crop_h = crop_to_content(width, height, pixels)
 
-    thumb = render_thumbnail(pixels, width, left, top, crop_w, crop_h)
+    thumb = render_thumbnail(pixels, width, left, top, crop_w, crop_h,
+                             FRAMING_OVERRIDES.get(tag, (1.0, 0.0, 0.0)))
     return idle_name, BOX_WIDTH, BOX_HEIGHT, thumb
 
 
