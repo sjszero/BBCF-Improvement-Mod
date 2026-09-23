@@ -5,6 +5,7 @@
 #include "Palette/PaletteManager.h"
 
 #include <queue>
+#include <string>
 
 class OnlinePaletteManager
 {
@@ -36,43 +37,50 @@ public:
 	bool CanDownloadPalette(uint16_t matchPlayerIndex) const;
 	PaletteDownloadPermission GetDownloadPermission(uint16_t matchPlayerIndex) const;
 
+	// The palette a player sent, once all of it has arrived and been checked against the
+	// block list. `withheld` means it is not being shown because it or its sender is blocked.
+	struct ReceivedPaletteView
+	{
+		bool decided = false;
+		bool withheld = false;
+		uint64_t hash = 0;
+		const IMPL_data_t* data = nullptr; // valid until the next palette arrives
+	};
+	bool GetReceivedPalette(uint16_t matchPlayerIndex, ReceivedPaletteView& out) const;
+
+	// Who is in a match slot, for blocking them. False when that slot is not a mod player.
+	bool GetMatchPlayerIdentity(uint16_t matchPlayerIndex, uint64_t* steamId, std::string* name) const;
+
 private:
 	bool IsPaletteHandleReady(const CharPaletteHandle& charPalHandle) const;
 	void SendPaletteDownloadPermissionPacket(uint16_t roomMemberIndex);
 	void SendPlatinumVoiceChoicePacket(uint16_t roomMemberIndex);
 	void SendPaletteInfoPacket(CharPaletteHandle& charPalHandle, uint16_t roomMemberIndex);
 	void SendPaletteDataPackets(CharPaletteHandle& charPalHandle, uint16_t roomMemberIndex);
-	void ProcessSavedPaletteInfoPackets();
-	void ProcessSavedPaletteDataPackets();
 	CharPaletteHandle& GetPlayerCharPaletteHandle(uint16_t matchPlayerIndex);
 
-	struct UnprocessedPaletteInfo
+	// A palette as it arrives: eight files and an info packet, collected per match slot
+	// and only shown once complete and not blocked.
+	struct ReceivedPalette
 	{
-		uint16_t matchPlayerIndex;
-		IMPL_info_t palInfo;
-
-		UnprocessedPaletteInfo(uint16_t matchPlayerIndex_, IMPL_info_t* pPalInfo)
-			: matchPlayerIndex(matchPlayerIndex_)
-		{
-			memcpy_s(&palInfo, sizeof(IMPL_info_t), pPalInfo, sizeof(IMPL_info_t));
-		}
+		bool files[IMPL_PALETTE_FILES_COUNT] = {};
+		bool haveInfo = false;
+		IMPL_data_t data = {};
+		bool decided = false;   // complete and checked against the block list
+		bool withheld = false;  // blocked, so not shown
+		uint64_t hash = 0;
+		uint64_t senderSteamId = 0;
+		std::string senderName;
 	};
 
-	struct UnprocessedPaletteFile
-	{
-		uint16_t matchPlayerIndex;
-		PaletteFile palFile;
-		char palData[IMPL_PALETTE_DATALEN];
+	void IdentifySender(ReceivedPalette& received, uint16_t roomMemberIndex);
+	bool IsBlocked(const ReceivedPalette& received) const;
+	void ShowReceived(uint16_t matchPlayerIndex);
+	void TryApplyReceived(uint16_t matchPlayerIndex);
+	void ReapplyBlocks();
 
-		UnprocessedPaletteFile(uint16_t matchPlayerIndex_, PaletteFile palFile_, char* pPalSrc)
-			: matchPlayerIndex(matchPlayerIndex_), palFile(palFile_)
-		{
-			memcpy_s(palData, IMPL_PALETTE_DATALEN, pPalSrc, IMPL_PALETTE_DATALEN);
-		}
-	};
-
-	std::queue<UnprocessedPaletteInfo> m_unprocessedPaletteInfos;
-	std::queue<UnprocessedPaletteFile> m_unprocessedPaletteFiles;
+	ReceivedPalette m_received[2];
+	int m_blockRevision = 0;
 
 	CharPaletteHandle* m_pP1CharPalHandle;
 	CharPaletteHandle* m_pP2CharPalHandle;

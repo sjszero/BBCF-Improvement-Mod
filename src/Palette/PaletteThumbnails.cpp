@@ -465,6 +465,81 @@ namespace PaletteThumbnails
 		return (ImTextureID)(uintptr_t)texture;
 	}
 
+	bool RenderPixels(int charIndex, const char* paletteData, std::vector<unsigned int>& out,
+		int* outWidth, int* outHeight)
+	{
+		const Sprite* sprite = GetSprite(charIndex);
+		if (!sprite || !paletteData)
+			return false;
+		const unsigned char* palette = (const unsigned char*)paletteData;
+		out.resize((size_t)sprite->width * sprite->height);
+		for (size_t i = 0; i < out.size(); i++)
+		{
+			const unsigned char index = sprite->indices[i];
+			const unsigned char* e = palette + (size_t)index * 4;
+			out[i] = index == 0 ? 0u : (0xFF000000u | ((unsigned int)e[2] << 16) | ((unsigned int)e[1] << 8) | e[0]);
+		}
+		if (outWidth) *outWidth = sprite->width;
+		if (outHeight) *outHeight = sprite->height;
+		return true;
+	}
+
+	ImTextureID GetFromPixels(const std::string& key, const unsigned int* pixels, int width, int height)
+	{
+		ReleaseAbandonedEditorSheet();
+		IDirect3DDevice9* device = Device();
+		if (!device || !pixels || width <= 0 || height <= 0)
+			return 0;
+
+		// Same cache, same eviction as the palette thumbnails; charIndex -2 keeps these keys
+		// apart from theirs.
+		CacheKey cacheKey;
+		cacheKey.charIndex = -2;
+		cacheKey.key = key;
+		const int frame = ImGui::GetFrameCount();
+		std::map<CacheKey, Entry>::iterator hit = g_cache.find(cacheKey);
+		if (hit != g_cache.end())
+		{
+			g_recency.splice(g_recency.begin(), g_recency, hit->second.recency);
+			hit->second.recency = g_recency.begin();
+			hit->second.lastUsedFrame = frame;
+			return (ImTextureID)(uintptr_t)hit->second.texture;
+		}
+
+		IDirect3DTexture9* texture = NULL;
+		if (device->CreateTexture(width, height, 1, D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture, NULL) != D3D_OK)
+			return 0;
+		D3DLOCKED_RECT locked;
+		if (texture->LockRect(0, &locked, NULL, 0) != D3D_OK)
+		{
+			texture->Release();
+			return 0;
+		}
+		for (int y = 0; y < height; y++)
+			memcpy((unsigned char*)locked.pBits + (size_t)y * locked.Pitch, pixels + (size_t)y * width, (size_t)width * 4);
+		texture->UnlockRect(0);
+
+		while (g_cache.size() >= kMaxCachedTextures && !g_recency.empty())
+		{
+			std::map<CacheKey, Entry>::iterator oldest = g_cache.find(g_recency.back());
+			if (oldest == g_cache.end())
+			{
+				g_recency.pop_back();
+				continue;
+			}
+			if (oldest->second.lastUsedFrame == frame)
+				break;
+			Evict(oldest);
+		}
+		g_recency.push_front(cacheKey);
+		Entry entry;
+		entry.texture = texture;
+		entry.recency = g_recency.begin();
+		entry.lastUsedFrame = frame;
+		g_cache[cacheKey] = entry;
+		return (ImTextureID)(uintptr_t)texture;
+	}
+
 	ImTextureID GetSheet(int charIndex, const std::string& key, const char* paletteData,
 		int* outWidth, int* outHeight)
 	{

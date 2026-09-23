@@ -1,6 +1,7 @@
 #include "OnlinePaletteManager.h"
 
 #include "Palette/impl_format.h"
+#include "Palette/PaletteBlockList.h"
 
 #include "Core/logger.h"
 #include "Core/interfaces.h"
@@ -44,19 +45,22 @@ void OnlinePaletteManager::RecvPaletteDataPacket(Packet* packet)
 	if (!g_modVals.enableForeignPalettes)
 		return;
 
-	uint16_t matchPlayerIndex = m_pRoomManager->GetPlayerMatchPlayerIndexByRoomMemberIndex(packet->roomMemberIndex);
-	CharPaletteHandle& charPalHandle = GetPlayerCharPaletteHandle(matchPlayerIndex);
-
-	if (!IsPaletteHandleReady(charPalHandle))
-	{
-		LOG(1, "[OnlinePalette] Queueing palette data until handle is ready (matchPlayerIndex=%u, part=%u)\n",
-			matchPlayerIndex, packet->part);
-		m_unprocessedPaletteFiles.push(UnprocessedPaletteFile(matchPlayerIndex, (PaletteFile)packet->part, (char*)packet->data));
+	const uint16_t matchPlayerIndex = m_pRoomManager->GetPlayerMatchPlayerIndexByRoomMemberIndex(packet->roomMemberIndex);
+	if (matchPlayerIndex > 1 || packet->part >= IMPL_PALETTE_FILES_COUNT || packet->dataSize < IMPL_PALETTE_DATALEN)
 		return;
-	}
 
-	m_pPaletteManager->ReplacePaletteFile((const char*)packet->data, (PaletteFile)packet->part, charPalHandle);
+	// Held until all eight files are in: a palette can only be checked against the block
+	// list whole, and showing it file by file until then would flash a blocked one.
+	ReceivedPalette& received = m_received[matchPlayerIndex];
+	if (received.decided && received.files[packet->part])
+		received = ReceivedPalette(); // a file already used: this is the next palette
+	memcpy_s((char*)received.data.file0 + packet->part * IMPL_PALETTE_DATALEN, IMPL_PALETTE_DATALEN,
+		packet->data, IMPL_PALETTE_DATALEN);
+	received.files[packet->part] = true;
+	IdentifySender(received, packet->roomMemberIndex);
+	TryApplyReceived(matchPlayerIndex);
 }
+
 
 void OnlinePaletteManager::RecvPaletteInfoPacket(Packet* packet)
 {
@@ -65,19 +69,25 @@ void OnlinePaletteManager::RecvPaletteInfoPacket(Packet* packet)
 	if (!g_modVals.enableForeignPalettes)
 		return;
 
-	uint16_t matchPlayerIndex = m_pRoomManager->GetPlayerMatchPlayerIndexByRoomMemberIndex(packet->roomMemberIndex);
-	CharPaletteHandle& charPalHandle = GetPlayerCharPaletteHandle(matchPlayerIndex);
-
-	if (!IsPaletteHandleReady(charPalHandle))
-	{
-		LOG(1, "[OnlinePalette] Queueing palette info until handle is ready (matchPlayerIndex=%u)\n",
-			matchPlayerIndex);
-		m_unprocessedPaletteInfos.push(UnprocessedPaletteInfo(matchPlayerIndex, (IMPL_info_t*)packet->data));
+	const uint16_t matchPlayerIndex = m_pRoomManager->GetPlayerMatchPlayerIndexByRoomMemberIndex(packet->roomMemberIndex);
+	if (matchPlayerIndex > 1 || packet->dataSize < sizeof(IMPL_info_t))
 		return;
-	}
 
-	m_pPaletteManager->SetCurrentPalInfo(charPalHandle, *(IMPL_info_t*)packet->data);
+	ReceivedPalette& received = m_received[matchPlayerIndex];
+	if (received.decided && received.haveInfo)
+		received = ReceivedPalette(); // the info of the next palette
+	memcpy_s(&received.data.palInfo, sizeof(IMPL_info_t), packet->data, sizeof(IMPL_info_t));
+	received.haveInfo = true;
+	IdentifySender(received, packet->roomMemberIndex);
+
+	// The files usually come after the info; if they won the race, the palette is on screen
+	// already and only its name is missing.
+	if (received.decided && !received.withheld)
+		m_pPaletteManager->SetCurrentPalInfo(GetPlayerCharPaletteHandle(matchPlayerIndex), received.data.palInfo);
+	else
+		TryApplyReceived(matchPlayerIndex);
 }
+
 
 void OnlinePaletteManager::RecvPaletteDownloadPermissionPacket(Packet* packet)
 {
@@ -126,16 +136,17 @@ void OnlinePaletteManager::ProcessSavedPalettePackets()
 	if (!m_pRoomManager->IsRoomFunctional())
 		return;
 
-	ProcessSavedPaletteInfoPackets();
-	ProcessSavedPaletteDataPackets();
+	TryApplyReceived(0);
+	TryApplyReceived(1);
 }
+
 
 void OnlinePaletteManager::ClearSavedPalettePacketQueues()
 {
 	LOG(2, "OnlinePaletteManager::ClearSavedPalettePacketQueues\n");
 
-	m_unprocessedPaletteInfos = {};
-	m_unprocessedPaletteFiles = {};
+	m_received[0] = ReceivedPalette();
+	m_received[1] = ReceivedPalette();
 	m_matchInitPending = false;
 	m_loggedMatchInitWait = false;
 	m_playerPaletteDownloadPermissions[0] = PaletteDownloadPermission::Unknown;
@@ -143,6 +154,7 @@ void OnlinePaletteManager::ClearSavedPalettePacketQueues()
 	m_playerVoiceChoices[0] = -1;
 	m_playerVoiceChoices[1] = -1;
 }
+
 
 void OnlinePaletteManager::OnMatchInit()
 {
@@ -162,6 +174,17 @@ void OnlinePaletteManager::OnUpdate()
 	if (!m_pRoomManager->IsRoomFunctional())
 		return;
 
+	// Received palettes waiting on their handle, and a block or unblock since last frame -
+	// for spectators as much as for players.
+	TryApplyReceived(0);
+	TryApplyReceived(1);
+	const int blockRevision = PaletteBlockList::Revision();
+	if (blockRevision != m_blockRevision)
+	{
+		m_blockRevision = blockRevision;
+		ReapplyBlocks();
+	}
+
 	if (m_pRoomManager->IsThisPlayerSpectator())
 	{
 		m_matchInitPending = false;
@@ -169,12 +192,8 @@ void OnlinePaletteManager::OnUpdate()
 		return;
 	}
 
-	if (!m_matchInitPending &&
-		m_unprocessedPaletteInfos.empty() &&
-		m_unprocessedPaletteFiles.empty())
-	{
+	if (!m_matchInitPending)
 		return;
-	}
 
 	CharPaletteHandle& localHandle = GetPlayerCharPaletteHandle(m_pRoomManager->GetThisPlayerMatchPlayerIndex());
 	if (!IsPaletteHandleReady(localHandle))
@@ -281,59 +300,7 @@ void OnlinePaletteManager::SendPaletteDataPackets(CharPaletteHandle& charPalHand
 	}
 }
 
-void OnlinePaletteManager::ProcessSavedPaletteInfoPackets()
-{
-	LOG(2, "OnlinePaletteManager::ProcessSavedPaletteInfoPackets\n");
 
-	const size_t pendingCount = m_unprocessedPaletteInfos.size();
-	for (size_t i = 0; i < pendingCount; ++i)
-	{
-		UnprocessedPaletteInfo& palInfo = m_unprocessedPaletteInfos.front();
-
-		CharPaletteHandle& charPalHandle = GetPlayerCharPaletteHandle(palInfo.matchPlayerIndex);
-
-		if (IsPaletteHandleReady(charPalHandle))
-		{
-			if (g_modVals.enableForeignPalettes)
-			{
-				m_pPaletteManager->SetCurrentPalInfo(charPalHandle, palInfo.palInfo);
-			}
-		}
-		else
-		{
-			m_unprocessedPaletteInfos.push(palInfo);
-		}
-
-		m_unprocessedPaletteInfos.pop();
-	}
-}
-
-void OnlinePaletteManager::ProcessSavedPaletteDataPackets()
-{
-	LOG(2, "OnlinePaletteManager::ProcessSavedPaletteDataPackets\n");
-
-	const size_t pendingCount = m_unprocessedPaletteFiles.size();
-	for (size_t i = 0; i < pendingCount; ++i)
-	{
-		UnprocessedPaletteFile& palfile = m_unprocessedPaletteFiles.front();
-
-		CharPaletteHandle& charPalHandle = GetPlayerCharPaletteHandle(palfile.matchPlayerIndex);
-
-		if (IsPaletteHandleReady(charPalHandle))
-		{
-			if (g_modVals.enableForeignPalettes)
-			{
-				m_pPaletteManager->ReplacePaletteFile(palfile.palData, palfile.palFile, charPalHandle);
-			}
-		}
-		else
-		{
-			m_unprocessedPaletteFiles.push(palfile);
-		}
-
-		m_unprocessedPaletteFiles.pop();
-	}
-}
 
 CharPaletteHandle& OnlinePaletteManager::GetPlayerCharPaletteHandle(uint16_t matchPlayerIndex)
 {
@@ -343,4 +310,108 @@ CharPaletteHandle& OnlinePaletteManager::GetPlayerCharPaletteHandle(uint16_t mat
 bool OnlinePaletteManager::IsPaletteHandleReady(const CharPaletteHandle& charPalHandle) const
 {
 	return charPalHandle.IsPaletteDataReady();
+}
+
+void OnlinePaletteManager::IdentifySender(ReceivedPalette& received, uint16_t roomMemberIndex)
+{
+	if (received.senderSteamId)
+		return;
+	for (const IMPlayer& player : m_pRoomManager->GetIMPlayersInCurrentMatch())
+	{
+		if (player.roomMemberIndex == (int)roomMemberIndex)
+		{
+			received.senderSteamId = player.steamID.ConvertToUint64();
+			received.senderName = player.steamName;
+			if (PaletteBlockList::IsUserBlocked(received.senderSteamId))
+				PaletteBlockList::UpdateUserName(received.senderSteamId, received.senderName);
+			return;
+		}
+	}
+}
+
+bool OnlinePaletteManager::IsBlocked(const ReceivedPalette& received) const
+{
+	return PaletteBlockList::IsUserBlocked(received.senderSteamId) || PaletteBlockList::IsPaletteBlocked(received.hash);
+}
+
+void OnlinePaletteManager::ShowReceived(uint16_t matchPlayerIndex)
+{
+	ReceivedPalette& received = m_received[matchPlayerIndex];
+	CharPaletteHandle& charPalHandle = GetPlayerCharPaletteHandle(matchPlayerIndex);
+	for (int file = 0; file < IMPL_PALETTE_FILES_COUNT; file++)
+		m_pPaletteManager->ReplacePaletteFile(received.data.file0 + file * IMPL_PALETTE_DATALEN, (PaletteFile)file, charPalHandle);
+	if (received.haveInfo)
+		m_pPaletteManager->SetCurrentPalInfo(charPalHandle, received.data.palInfo);
+}
+
+void OnlinePaletteManager::TryApplyReceived(uint16_t matchPlayerIndex)
+{
+	ReceivedPalette& received = m_received[matchPlayerIndex];
+	if (received.decided || !g_modVals.enableForeignPalettes)
+		return;
+	for (int file = 0; file < IMPL_PALETTE_FILES_COUNT; file++)
+		if (!received.files[file])
+			return;
+	if (!IsPaletteHandleReady(GetPlayerCharPaletteHandle(matchPlayerIndex)))
+		return;
+
+	received.hash = PaletteBlockList::HashPalette(received.data);
+	received.decided = true;
+	received.withheld = IsBlocked(received);
+	if (received.withheld)
+	{
+		// Nothing to undo: the opponent was put back on their own colours at match init.
+		LOG(1, "[OnlinePalette] Not showing palette from %s (matchPlayerIndex=%u): %s is blocked\n",
+			received.senderName.c_str(), matchPlayerIndex,
+			PaletteBlockList::IsUserBlocked(received.senderSteamId) ? "the player" : "the palette");
+		return;
+	}
+	ShowReceived(matchPlayerIndex);
+}
+
+void OnlinePaletteManager::ReapplyBlocks()
+{
+	for (uint16_t i = 0; i < 2; i++)
+	{
+		ReceivedPalette& received = m_received[i];
+		if (!received.decided)
+			continue;
+		const bool blocked = IsBlocked(received);
+		if (blocked && !received.withheld)
+		{
+			m_pPaletteManager->RestoreOrigPal(GetPlayerCharPaletteHandle(i));
+			received.withheld = true;
+		}
+		else if (!blocked && received.withheld && g_modVals.enableForeignPalettes)
+		{
+			ShowReceived(i);
+			received.withheld = false;
+		}
+	}
+}
+
+bool OnlinePaletteManager::GetReceivedPalette(uint16_t matchPlayerIndex, ReceivedPaletteView& out) const
+{
+	if (matchPlayerIndex > 1)
+		return false;
+	const ReceivedPalette& received = m_received[matchPlayerIndex];
+	out.decided = received.decided;
+	out.withheld = received.withheld;
+	out.hash = received.hash;
+	out.data = received.decided ? &received.data : nullptr;
+	return received.decided;
+}
+
+bool OnlinePaletteManager::GetMatchPlayerIdentity(uint16_t matchPlayerIndex, uint64_t* steamId, std::string* name) const
+{
+	for (const IMPlayer& player : m_pRoomManager->GetIMPlayersInCurrentMatch())
+	{
+		if (player.matchPlayerIndex == (int)matchPlayerIndex)
+		{
+			*steamId = player.steamID.ConvertToUint64();
+			*name = player.steamName;
+			return *steamId != 0;
+		}
+	}
+	return false;
 }

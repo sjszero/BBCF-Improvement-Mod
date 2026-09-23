@@ -24,6 +24,8 @@ namespace
 #include "Overlay/imgui_utils.h"
 #include "Overlay/Logger/ImGuiLogger.h"
 #include "Palette/impl_format.h"
+#include "Palette/PaletteBlockList.h"
+#include "Overlay/NotificationBar/NotificationBar.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -1074,15 +1076,33 @@ void PaletteEditorWindow::ShowOnlinePaletteResetButton(Player& playerHandle, uin
 	ImGui::EndGroup();
 	ShowHoveredPaletteInfoToolTip(palInfo, charIndex, 0);
 
+	// "Reset palette" read as something done to your own palette; this is the opponent's,
+	// and all it does is stop showing the custom one they sent, for this match.
 	char resetButtonId[80];
-	sprintf_s(resetButtonId, "%s##reset%s", Messages.Reset_palette(), btnText);
+	sprintf_s(resetButtonId, "%s##reset%s", L("Show original colors").c_str(), btnText);
 	if (ImGui::Button(resetButtonId, ImVec2(-1.0f, 0.0f)))
 	{
 		g_interfaces.pPaletteManager->RestoreOrigPal(charPalHandle);
 	}
+	ImGui::HoverTooltip(L("Stop showing the custom palette this player sent you, and show their character in the game color they picked instead. Only on your screen, and only for this match. To never load other players' palettes, turn off \"Load other players' custom palettes\" on the Online page.").c_str());
+
+	// What they sent, and who they are, for the block buttons below. This cell only exists
+	// online, so neither ever shows in training.
+	OnlinePaletteManager::ReceivedPaletteView received;
+	const bool havePalette = g_interfaces.pOnlinePaletteManager->GetReceivedPalette(matchPlayerIndex, received) &&
+		received.data != nullptr;
+	// Someone on a stock colour sends it too; that is the game's palette, not theirs to block.
+	const bool customPalette = havePalette && received.data->palInfo.palName[0] &&
+		_stricmp(received.data->palInfo.palName, "Default") != 0;
+	uint64_t steamId = 0;
+	std::string steamName;
+	const bool knownPlayer = g_interfaces.pOnlinePaletteManager->GetMatchPlayerIdentity(matchPlayerIndex, &steamId, &steamName);
+	if (havePalette && received.withheld)
+		ImGui::TextDisabledWrapped("%s", L("Their palette is blocked, so you see their original colors.").c_str());
 
 	const OnlinePaletteManager::PaletteDownloadPermission downloadPermission =
-		g_interfaces.pOnlinePaletteManager->GetDownloadPermission(matchPlayerIndex);
+		received.withheld ? OnlinePaletteManager::PaletteDownloadPermission::Denied
+		: g_interfaces.pOnlinePaletteManager->GetDownloadPermission(matchPlayerIndex);
 	char downloadButtonId[80];
 	sprintf_s(downloadButtonId, "%s##download%s", Messages.Download_palette(), btnText);
 
@@ -1099,9 +1119,71 @@ void PaletteEditorWindow::ShowOnlinePaletteResetButton(Player& playerHandle, uin
 		ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
 		ImGui::Button(downloadButtonId, ImVec2(-1.0f, 0.0f));
 		ImGui::PopStyleVar();
-		ImGui::HoverTooltip(downloadPermission == OnlinePaletteManager::PaletteDownloadPermission::Denied
+		ImGui::HoverTooltip(received.withheld ? L("You blocked this palette or player.").c_str()
+			: downloadPermission == OnlinePaletteManager::PaletteDownloadPermission::Denied
 			? Messages.Palette_download_denied_tooltip()
 			: Messages.Palette_download_unsupported_tooltip());
+	}
+
+	// One "Block" button, for what there is to block: this palette, and this player.
+	const bool paletteBlocked = havePalette && PaletteBlockList::IsPaletteBlocked(received.hash);
+	const bool playerBlocked = knownPlayer && PaletteBlockList::IsUserBlocked(steamId);
+	char blockButtonId[64];
+	sprintf_s(blockButtonId, "%s##block%s", L("Block").c_str(), btnText);
+	char blockMenuId[64];
+	sprintf_s(blockMenuId, "##blockmenu%s", btnText);
+
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.09f, 0.09f, 0.10f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.17f, 0.08f, 0.08f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.24f, 0.08f, 0.08f, 1.0f));
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.34f, 0.34f, 1.0f));
+	if (ImGui::Button(blockButtonId, ImVec2(-1.0f, 0.0f)))
+		ImGui::OpenPopup(blockMenuId);
+	ImGui::PopStyleColor(4);
+	ImGui::HoverTooltip(L("Never see this player's palettes, or this palette, again. Undo it any time from Palettes > Blocked palettes.").c_str());
+
+	if (ImGui::BeginPopup(blockMenuId))
+	{
+		const std::string userName = steamName.empty() ? L("this player") : steamName;
+		const std::string userItem = FormatText((playerBlocked ? L("Unblock user (%s)") : L("Block user (%s)")).c_str(), userName.c_str());
+		if (ImGui::MenuItem(userItem.c_str(), nullptr, false, knownPlayer))
+		{
+			if (playerBlocked)
+			{
+				PaletteBlockList::UnblockUser(steamId);
+			}
+			else
+			{
+				PaletteBlockList::BlockUser(steamId, steamName);
+				g_notificationBar->AddNotification(FormatText(L("Blocked palettes from %s. Unblock them any time from Palettes > Blocked palettes.").c_str(),
+					steamName.c_str()).c_str());
+			}
+		}
+		ImGui::HoverTooltipEvenDisabled(playerBlocked ? FormatText(L("Show %s's palettes again.").c_str(), userName.c_str()).c_str()
+			: knownPlayer ? FormatText(L("Never show a custom palette from %s again, whatever they use.").c_str(), userName.c_str()).c_str()
+			: L("They are not using the Improvement Mod, so they cannot send palettes.").c_str());
+
+		const std::string paletteName = havePalette && received.data->palInfo.palName[0]
+			? std::string(received.data->palInfo.palName, strnlen(received.data->palInfo.palName, IMPL_PALNAME_LENGTH))
+			: L("no custom palette");
+		const std::string paletteItem = FormatText((paletteBlocked ? L("Unblock palette (%s)") : L("Block palette (%s)")).c_str(), paletteName.c_str());
+		if (ImGui::MenuItem(paletteItem.c_str(), nullptr, false, customPalette || paletteBlocked))
+		{
+			if (paletteBlocked)
+			{
+				PaletteBlockList::UnblockPalette(received.hash);
+			}
+			else
+			{
+				PaletteBlockList::BlockPalette(*received.data, charIndex, steamId, steamName);
+				g_notificationBar->AddNotification(FormatText(L("Blocked the palette '%s'. Unblock it any time from Palettes > Blocked palettes.").c_str(),
+					paletteName.c_str()).c_str());
+			}
+		}
+		ImGui::HoverTooltipEvenDisabled(paletteBlocked ? L("Show this palette again.").c_str()
+			: customPalette ? L("Never show this palette again, from anyone. You keep a small picture of it so you can recognise it in the block list; the palette itself is not saved.").c_str()
+			: L("They are not using a custom palette.").c_str());
+		ImGui::EndPopup();
 	}
 }
 

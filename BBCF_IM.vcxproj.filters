@@ -147,6 +147,7 @@
     <ClCompile Include="src\Overlay\Window\MainMenu\MainMenuPages.cpp" />
     <ClCompile Include="src\Overlay\Window\PalettesConfigWindow.cpp" />
     <ClCompile Include="src\Palette\NativePalettes.cpp" />
+    <ClCompile Include="src\Palette\PaletteBlockList.cpp" />
     <ClCompile Include="src\Core\ScreenColorPicker.cpp" />
     <ClCompile Include="src\Palette\EffectSheets.cpp" />
     <ClCompile Include="src\Overlay\Window\PaletteEditorModal.cpp" />
@@ -395,6 +396,7 @@
     <ClInclude Include="src\Overlay\Window\MainMenu\MainMenuPages.h" />
     <ClInclude Include="src\Overlay\Window\PalettesConfigWindow.h" />
     <ClInclude Include="src\Palette\NativePalettes.h" />
+    <ClInclude Include="src\Palette\PaletteBlockList.h" />
     <ClInclude Include="src\Core\ScreenColorPicker.h" />
     <ClInclude Include="src\Palette\EffectSheets.h" />
     <ClInclude Include="src\Overlay\Window\PaletteEditorModal.h" />

@@ -4646,6 +4646,111 @@ struct LocalizationKeysAccessor
 
         // Vertical
         inline const char* Vertical() const { return Get("Vertical"); }
+
+        // Show original colors
+        inline const char* Show_original_colors() const { return Get("Show original colors"); }
+
+        // Stop showing the custom palette this player sent you, and show their character in the game color they picked instead. Only on your screen, and only for this match. To never load other players' palettes, turn off "Load other players' custom palettes" on the Online page.
+        inline const char* Stop_showing_the_custom_palette_this_player_sent_you_and_show_their_character_in_the_game_color_they_picked_instead_Only_on_your_screen_and_only_for_this_match_To_never_load_other_players_palettes_turn_off_Load_other_players_custom_palettes_on_the_Online_page() const { return Get("Stop showing the custom palette this player sent you, and show their character in the game color they picked instead. Only on your screen, and only for this match. To never load other players' palettes, turn off \"Load other players' custom palettes\" on the Online page."); }
+
+        // Block
+        inline const char* Block() const { return Get("Block"); }
+
+        // Block a player by SteamID64:
+        inline const char* Block_a_player_by_SteamID64() const { return Get("Block a player by SteamID64:"); }
+
+        // Blocked on
+        inline const char* Blocked_on() const { return Get("Blocked on"); }
+
+        // Blocked palettes
+        inline const char* Blocked_palettes() const { return Get("Blocked palettes"); }
+
+        // Blocked palettes (%d)
+        inline const char* Blocked_palettes_d() const { return Get("Blocked palettes (%d)"); }
+
+        // Blocked palettes are never shown online, whoever uses them; blocked players' palettes are never shown, whatever they use. You see their character's original colors instead.
+        inline const char* Blocked_palettes_are_never_shown_online_whoever_uses_them_blocked_players_palettes_are_never_shown_whatever_they_use_You_see_their_character_s_original_colors_instead() const { return Get("Blocked palettes are never shown online, whoever uses them; blocked players' palettes are never shown, whatever they use. You see their character's original colors instead."); }
+
+        // Blocked palettes from %s. Unblock them any time from Palettes > Blocked palettes.
+        inline const char* Blocked_palettes_from_s_Unblock_them_any_time_from_Palettes_Blocked_palettes() const { return Get("Blocked palettes from %s. Unblock them any time from Palettes > Blocked palettes."); }
+
+        // Blocked the palette '%s'. Unblock it any time from Palettes > Blocked palettes.
+        inline const char* Blocked_the_palette_s_Unblock_it_any_time_from_Palettes_Blocked_palettes() const { return Get("Blocked the palette '%s'. Unblock it any time from Palettes > Blocked palettes."); }
+
+        // Never show a custom palette from %s again, whatever they use.
+        inline const char* Never_show_a_custom_palette_from_s_again_whatever_they_use() const { return Get("Never show a custom palette from %s again, whatever they use."); }
+
+        // Never show this palette again, from anyone. You keep a small picture of it so you can recognise it in the block list; the palette itself is not saved.
+        inline const char* Never_show_this_palette_again_from_anyone_You_keep_a_small_picture_of_it_so_you_can_recognise_it_in_the_block_list_the_palette_itself_is_not_saved() const { return Get("Never show this palette again, from anyone. You keep a small picture of it so you can recognise it in the block list; the palette itself is not saved."); }
+
+        // No blocked palettes. Block one from the palette section of an online match (F1 or F2 menu).
+        inline const char* No_blocked_palettes_Block_one_from_the_palette_section_of_an_online_match_F1_or_F2_menu() const { return Get("No blocked palettes. Block one from the palette section of an online match (F1 or F2 menu)."); }
+
+        // No blocked players. Block one from the palette section of an online match (F1 or F2 menu), or by SteamID below.
+        inline const char* No_blocked_players_Block_one_from_the_palette_section_of_an_online_match_F1_or_F2_menu_or_by_SteamID_below() const { return Get("No blocked players. Block one from the palette section of an online match (F1 or F2 menu), or by SteamID below."); }
+
+        // Palettes (%d)
+        inline const char* Palettes_d() const { return Get("Palettes (%d)"); }
+
+        // Palettes and players whose custom palettes you never want to see online. Block them from a match's palette section; unblock them here.
+        inline const char* Palettes_and_players_whose_custom_palettes_you_never_want_to_see_online_Block_them_from_a_match_s_palette_section_unblock_them_here() const { return Get("Palettes and players whose custom palettes you never want to see online. Block them from a match's palette section; unblock them here."); }
+
+        // Player
+        inline const char* Player() const { return Get("Player"); }
+
+        // Players (%d)
+        inline const char* Players_d() const { return Get("Players (%d)"); }
+
+        // Show %s's palettes again.
+        inline const char* Show_s_s_palettes_again() const { return Get("Show %s's palettes again."); }
+
+        // Show this palette again.
+        inline const char* Show_this_palette_again() const { return Get("Show this palette again."); }
+
+        // The 17-digit number in a Steam profile's URL (steamcommunity.com/profiles/...).
+        inline const char* The_17_digit_number_in_a_Steam_profile_s_URL_steamcommunity_com_profiles() const { return Get("The 17-digit number in a Steam profile's URL (steamcommunity.com/profiles/...)."); }
+
+        // Their palette is blocked, so you see their original colors.
+        inline const char* Their_palette_is_blocked_so_you_see_their_original_colors() const { return Get("Their palette is blocked, so you see their original colors."); }
+
+        // They are not using a custom palette.
+        inline const char* They_are_not_using_a_custom_palette() const { return Get("They are not using a custom palette."); }
+
+        // They are not using the Improvement Mod, so they cannot send palettes.
+        inline const char* They_are_not_using_the_Improvement_Mod_so_they_cannot_send_palettes() const { return Get("They are not using the Improvement Mod, so they cannot send palettes."); }
+
+        // Unblock
+        inline const char* Unblock() const { return Get("Unblock"); }
+
+        // You blocked this palette or player.
+        inline const char* You_blocked_this_palette_or_player() const { return Get("You blocked this palette or player."); }
+
+        // from %s, %s
+        inline const char* from_s_s() const { return Get("from %s, %s"); }
+
+        // (looking up name...)
+        inline const char* looking_up_name() const { return Get("(looking up name...)"); }
+
+        // Block palette (%s)
+        inline const char* Block_palette_s() const { return Get("Block palette (%s)"); }
+
+        // Block user (%s)
+        inline const char* Block_user_s() const { return Get("Block user (%s)"); }
+
+        // Never see this player's palettes, or this palette, again. Undo it any time from Palettes > Blocked palettes.
+        inline const char* Never_see_this_player_s_palettes_or_this_palette_again_Undo_it_any_time_from_Palettes_Blocked_palettes() const { return Get("Never see this player's palettes, or this palette, again. Undo it any time from Palettes > Blocked palettes."); }
+
+        // Unblock palette (%s)
+        inline const char* Unblock_palette_s() const { return Get("Unblock palette (%s)"); }
+
+        // Unblock user (%s)
+        inline const char* Unblock_user_s() const { return Get("Unblock user (%s)"); }
+
+        // no custom palette
+        inline const char* no_custom_palette() const { return Get("no custom palette"); }
+
+        // this player
+        inline const char* this_player() const { return Get("this player"); }
 };
 
 

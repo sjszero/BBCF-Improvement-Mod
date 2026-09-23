@@ -10,6 +10,7 @@
 #include "Overlay/imgui_utils.h"
 #include "Overlay/Logger/ImGuiLogger.h"
 #include "Palette/impl_templates.h"
+#include "Palette/PaletteBlockList.h"
 #include "Palette/PaletteManager.h"
 #include "Overlay/NotificationBar/NotificationBar.h"
 #include "Palette/PaletteSheet.h"
@@ -753,7 +754,7 @@ void PalettesConfigWindow::DrawImportCharSelectModal()
 void PalettesConfigWindow::DrawImportButton()
 {
 	const float buttonWidth = 170.0f;
-	const float rowWidth = buttonWidth * 2.0f + ImGui::GetStyle().ItemSpacing.x;
+	const float rowWidth = buttonWidth * 3.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f;
 	ImGui::SetCursorPosX((std::max)(ImGui::GetStyle().WindowPadding.x,
 		(ImGui::GetWindowWidth() - rowWidth) * 0.5f));
 
@@ -766,6 +767,15 @@ void PalettesConfigWindow::DrawImportButton()
 		m_editor.OpenNew(charIndex);
 	}
 	ImGui::HoverTooltip(L("Make a palette from scratch, starting from one of the game's colors.").c_str());
+	ImGui::SameLine();
+
+	const size_t blockedCount = PaletteBlockList::Palettes().size() + PaletteBlockList::Users().size();
+	const std::string blockedLabel = blockedCount
+		? FormatText(L("Blocked palettes (%d)").c_str(), (int)blockedCount) + "###palettes_blocked_button"
+		: L("Blocked palettes") + "###palettes_blocked_button";
+	if (ImGui::Button(blockedLabel.c_str(), ImVec2(buttonWidth, 0)))
+		m_openBlocked = true;
+	ImGui::HoverTooltip(L("Palettes and players whose custom palettes you never want to see online. Block them from a match's palette section; unblock them here.").c_str());
 	ImGui::SameLine();
 
 	const bool dialogBusy = NativeFileDialog::IsOpen();
@@ -1347,10 +1357,171 @@ void PalettesConfigWindow::DrawModal()
 
 	DrawImportCharSelectModal();
 	DrawDeleteConfirmModal();
+	DrawBlockedModal();
 	m_editor.Draw([this]() {
 		// Register the file just written, the same way an import does.
 		g_interfaces.pPaletteManager->ReloadAllPalettes([this]() { RebuildGroupsFromDraft(); });
 	});
 
+	ImGui::EndPopup();
+}
+
+void PalettesConfigWindow::DrawBlockedModal()
+{
+	if (m_openBlocked)
+	{
+		m_openBlocked = false;
+		ImGui::OpenPopup("###palettes_blocked");
+	}
+
+	const std::string title = L("Blocked palettes") + "###palettes_blocked";
+	ImGui::SetNextWindowSize(ImVec2(900, 640), ImGuiCond_FirstUseEver);
+	if (!ImGui::BeginPopupModal(title.c_str(), nullptr, 0))
+		return;
+
+	ImGui::TextWrapped("%s", L("Blocked palettes are never shown online, whoever uses them; blocked players' palettes are never shown, whatever they use. You see their character's original colors instead.").c_str());
+	ImGui::Spacing();
+
+	PaletteBlockList::ResolveMissingNames();
+	const auto& palettes = PaletteBlockList::Palettes();
+	const auto& users = PaletteBlockList::Users();
+	const float footer = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
+
+	uint64_t unblockPalette = 0;
+	uint64_t unblockUser = 0;
+
+	if (ImGui::BeginTabBar("##blocked_tabs"))
+	{
+		const std::string palettesTab = FormatText(L("Palettes (%d)").c_str(), (int)palettes.size()) + "###blocked_palettes_tab";
+		if (ImGui::BeginTabItem(palettesTab.c_str()))
+		{
+			ImGui::BeginChild("##blocked_palettes", ImVec2(0, -footer), ImGuiChildFlags_Borders);
+			if (palettes.empty())
+				ImGui::TextDisabledWrapped("%s", L("No blocked palettes. Block one from the palette section of an online match (F1 or F2 menu).").c_str());
+
+			// Cards: the picture kept when it was blocked, then what it is and where it came from.
+			const float cardWidth = 170.0f;
+			const float spriteHeight = 190.0f;
+			const float spacing = ImGui::GetStyle().ItemSpacing.x;
+			const int columns = (std::max)(1, (int)((ImGui::GetContentRegionAvail().x + spacing) / (cardWidth + spacing)));
+			for (size_t i = 0; i < palettes.size(); i++)
+			{
+				const PaletteBlockList::BlockedPalette& p = palettes[i];
+				if (i % columns != 0)
+					ImGui::SameLine();
+				ImGui::PushID((int)i);
+				ImGui::BeginGroup();
+
+				const ImVec2 cursor = ImGui::GetCursorScreenPos();
+				ImDrawList* draw = ImGui::GetWindowDrawList();
+				draw->AddRectFilled(cursor, ImVec2(cursor.x + cardWidth, cursor.y + spriteHeight),
+					ImGui::GetColorU32(ImGuiCol_FrameBg), 4.0f);
+				if (!p.thumb.empty() && ImGui::IsRectVisible(cursor, ImVec2(cursor.x + cardWidth, cursor.y + spriteHeight)))
+				{
+					char key[40];
+					sprintf_s(key, "blocked_%016llx", (unsigned long long)p.hash);
+					const ImTextureID texture = PaletteThumbnails::GetFromPixels(key, p.thumb.data(), p.thumbWidth, p.thumbHeight);
+					if (texture)
+					{
+						const float scale = (std::min)((cardWidth - 8.0f) / p.thumbWidth, (spriteHeight - 8.0f) / p.thumbHeight);
+						const ImVec2 size(p.thumbWidth * scale, p.thumbHeight * scale);
+						const ImVec2 p0(cursor.x + (cardWidth - size.x) * 0.5f, cursor.y + spriteHeight - 4.0f - size.y);
+						draw->AddImage(ImTextureRef(texture), p0, ImVec2(p0.x + size.x, p0.y + size.y));
+					}
+				}
+				ImGui::Dummy(ImVec2(cardWidth, spriteHeight));
+
+				ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + cardWidth);
+				ImGui::TextUnformatted(p.name.empty() ? L("(unnamed)").c_str() : p.name.c_str());
+				ImGui::TextDisabled("%s", getCharacterNameByIndexA(p.charIndex).c_str());
+				if (!p.creator.empty())
+					ImGui::TextDisabled("%s %s", L("by").c_str(), p.creator.c_str());
+				ImGui::TextDisabled("%s", FormatText(L("from %s, %s").c_str(),
+					p.fromName.empty() ? "?" : p.fromName.c_str(), PaletteBlockList::FormatDate(p.blockedAt).c_str()).c_str());
+				ImGui::PopTextWrapPos();
+				if (ImGui::Button(L("Unblock").c_str(), ImVec2(cardWidth, 0)))
+					unblockPalette = p.hash;
+				ImGui::EndGroup();
+				if (!p.desc.empty() && ImGui::IsItemHovered())
+					ImGui::SetTooltip("%s", p.desc.c_str());
+				ImGui::PopID();
+			}
+			ImGui::EndChild();
+			ImGui::EndTabItem();
+		}
+
+		const std::string playersTab = FormatText(L("Players (%d)").c_str(), (int)users.size()) + "###blocked_players_tab";
+		if (ImGui::BeginTabItem(playersTab.c_str()))
+		{
+			ImGui::BeginChild("##blocked_players", ImVec2(0, -footer - ImGui::GetFrameHeightWithSpacing() * 2.0f), ImGuiChildFlags_Borders);
+			if (users.empty())
+			{
+				ImGui::TextDisabledWrapped("%s", L("No blocked players. Block one from the palette section of an online match (F1 or F2 menu), or by SteamID below.").c_str());
+			}
+			else if (ImGui::BeginTable("##blocked_users_table", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+			{
+				ImGui::TableSetupColumn(L("Player").c_str(), ImGuiTableColumnFlags_WidthStretch, 2.0f);
+				ImGui::TableSetupColumn("SteamID", ImGuiTableColumnFlags_WidthStretch, 2.0f);
+				ImGui::TableSetupColumn(L("Blocked on").c_str(), ImGuiTableColumnFlags_WidthStretch, 1.2f);
+				ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+				ImGui::TableHeadersRow();
+				for (size_t i = 0; i < users.size(); i++)
+				{
+					const PaletteBlockList::BlockedUser& u = users[i];
+					ImGui::PushID((int)i);
+					ImGui::TableNextRow();
+					ImGui::TableNextColumn();
+					ImGui::AlignTextToFramePadding();
+					if (u.name.empty())
+						ImGui::TextDisabled("%s", L("(looking up name...)").c_str());
+					else
+						ImGui::TextUnformatted(u.name.c_str());
+					ImGui::TableNextColumn();
+					ImGui::TextDisabled("%llu", (unsigned long long)u.steamId);
+					ImGui::TableNextColumn();
+					ImGui::TextUnformatted(PaletteBlockList::FormatDate(u.blockedAt).c_str());
+					ImGui::TableNextColumn();
+					if (ImGui::Button(L("Unblock").c_str(), ImVec2(-FLT_MIN, 0)))
+						unblockUser = u.steamId;
+					ImGui::PopID();
+				}
+				ImGui::EndTable();
+			}
+			ImGui::EndChild();
+
+			// For someone who is not in a match with you right now.
+			ImGui::TextUnformatted(L("Block a player by SteamID64:").c_str());
+			ImGui::SetNextItemWidth(260.0f);
+			ImGui::InputTextWithHint("##block_steamid", "76561198000000000", m_blockSteamIdInput, sizeof(m_blockSteamIdInput),
+				ImGuiInputTextFlags_CharsDecimal);
+			ImGui::SameLine();
+			const uint64_t typedId = strtoull(m_blockSteamIdInput, nullptr, 10);
+			// SteamID64s of individual accounts all start at 76561197960265728.
+			const bool validId = typedId >= 76561197960265728ull;
+			ImGui::BeginDisabled(!validId);
+			if (ImGui::Button(L("Block").c_str()))
+			{
+				// The name comes from Steam (ResolveMissingNames, above), usually by the next frame.
+				const char* name = g_interfaces.pSteamFriendsWrapper
+					? g_interfaces.pSteamFriendsWrapper->GetFriendPersonaName(CSteamID((uint64)typedId)) : nullptr;
+				PaletteBlockList::BlockUser(typedId, name && strcmp(name, "[unknown]") != 0 ? name : "");
+				m_blockSteamIdInput[0] = 0;
+			}
+			ImGui::EndDisabled();
+			ImGui::HoverTooltipEvenDisabled(L("The 17-digit number in a Steam profile's URL (steamcommunity.com/profiles/...).").c_str());
+			ImGui::EndTabItem();
+		}
+		ImGui::EndTabBar();
+	}
+
+	// After the loops, so the lists they walk are not changed under them.
+	if (unblockPalette)
+		PaletteBlockList::UnblockPalette(unblockPalette);
+	if (unblockUser)
+		PaletteBlockList::UnblockUser(unblockUser);
+
+	ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 120.0f - ImGui::GetStyle().WindowPadding.x);
+	if (ImGui::Button(Messages.Close(), ImVec2(120, 0)))
+		ImGui::CloseCurrentPopup();
 	ImGui::EndPopup();
 }

@@ -2,6 +2,7 @@
 #include "imgui.h"
 
 #include <string>
+#include <vector>
 
 // Sprite thumbnails for the palette grid.
 //
@@ -34,6 +35,16 @@ namespace PaletteThumbnails
 	// Only call while drawing: entries touched this frame are the ones kept.
 	ImTextureID Get(int charIndex, const std::string& key, const char* paletteData,
 		int* outWidth, int* outHeight);
+
+	// The character's thumbnail drawn in `paletteData`, as 0xAARRGGBB pixels (transparent
+	// where the sprite is not), for keeping a picture of a palette without keeping the
+	// palette. False when this build has no sprite for the character.
+	bool RenderPixels(int charIndex, const char* paletteData, std::vector<unsigned int>& out,
+		int* outWidth, int* outHeight);
+
+	// A texture for ready-made 0xAARRGGBB pixels, cached under `key` like the thumbnails
+	// (same size cap, same rules on when to call).
+	ImTextureID GetFromPixels(const std::string& key, const unsigned int* pixels, int width, int height);
 
 	// The full reference sheet for a palette, as a texture, for the detail panel. Only
 	// one is ever held: it is ~4.8 MB as RGBA, so selecting another palette releases the

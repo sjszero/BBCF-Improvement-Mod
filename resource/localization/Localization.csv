@@ -1727,3 +1727,38 @@ Saved to BBCF_IM\ThumbnailAdjust.txt,Saved to BBCF_IM\ThumbnailAdjust.txt,Guarda
 Scale,Scale,Escala
 Development tool for tuning the character thumbnails.,Development tool for tuning the character thumbnails.,Herramienta de desarrollo para ajustar las miniaturas de personajes.
 Vertical,Vertical,Vertical
+Show original colors,Show original colors,Mostrar colores originales
+"Stop showing the custom palette this player sent you, and show their character in the game color they picked instead. Only on your screen, and only for this match. To never load other players' palettes, turn off ""Load other players' custom palettes"" on the Online page.","Stop showing the custom palette this player sent you, and show their character in the game color they picked instead. Only on your screen, and only for this match. To never load other players' palettes, turn off ""Load other players' custom palettes"" on the Online page.","Deja de mostrar la paleta personalizada que te envió este jugador y muestra su personaje en el color del juego que eligió. Solo en tu pantalla y solo para esta partida. Para no cargar nunca las paletas de otros jugadores, desactiva ""Cargar las paletas personalizadas de otros jugadores"" en la página Online."
+Block,Block,Bloquear
+Block a player by SteamID64:,Block a player by SteamID64:,Bloquear a un jugador por SteamID64:
+Blocked on,Blocked on,Bloqueado el
+Blocked palettes,Blocked palettes,Paletas bloqueadas
+Blocked palettes (%d),Blocked palettes (%d),Paletas bloqueadas (%d)
+"Blocked palettes are never shown online, whoever uses them; blocked players' palettes are never shown, whatever they use. You see their character's original colors instead.","Blocked palettes are never shown online, whoever uses them; blocked players' palettes are never shown, whatever they use. You see their character's original colors instead.","Las paletas bloqueadas nunca se muestran online, las use quien las use; las paletas de los jugadores bloqueados nunca se muestran, usen la que usen. En su lugar ves los colores originales de su personaje."
+Blocked palettes from %s. Unblock them any time from Palettes > Blocked palettes.,Blocked palettes from %s. Unblock them any time from Palettes > Blocked palettes.,Se bloquearon las paletas de %s. Desbloquéalas cuando quieras desde Paletas > Paletas bloqueadas.
+Blocked the palette '%s'. Unblock it any time from Palettes > Blocked palettes.,Blocked the palette '%s'. Unblock it any time from Palettes > Blocked palettes.,Se bloqueó la paleta '%s'. Desbloquéala cuando quieras desde Paletas > Paletas bloqueadas.
+"Never show a custom palette from %s again, whatever they use.","Never show a custom palette from %s again, whatever they use.","No volver a mostrar ninguna paleta personalizada de %s, use la que use."
+"Never show this palette again, from anyone. You keep a small picture of it so you can recognise it in the block list; the palette itself is not saved.","Never show this palette again, from anyone. You keep a small picture of it so you can recognise it in the block list; the palette itself is not saved.","No volver a mostrar esta paleta, la use quien la use. Se guarda una imagen pequeña para reconocerla en la lista de bloqueos; la paleta en sí no se guarda."
+No blocked palettes. Block one from the palette section of an online match (F1 or F2 menu).,No blocked palettes. Block one from the palette section of an online match (F1 or F2 menu).,No hay paletas bloqueadas. Bloquea una desde la sección de paletas de una partida online (menú F1 o F2).
+"No blocked players. Block one from the palette section of an online match (F1 or F2 menu), or by SteamID below.","No blocked players. Block one from the palette section of an online match (F1 or F2 menu), or by SteamID below.","No hay jugadores bloqueados. Bloquea uno desde la sección de paletas de una partida online (menú F1 o F2), o por SteamID abajo."
+Palettes (%d),Palettes (%d),Paletas (%d)
+Palettes and players whose custom palettes you never want to see online. Block them from a match's palette section; unblock them here.,Palettes and players whose custom palettes you never want to see online. Block them from a match's palette section; unblock them here.,Paletas y jugadores cuyas paletas personalizadas nunca quieres ver online. Bloquéalos desde la sección de paletas de una partida; desbloquéalos aquí.
+Player,Player,Jugador
+Players (%d),Players (%d),Jugadores (%d)
+Show %s's palettes again.,Show %s's palettes again.,Volver a mostrar las paletas de %s.
+Show this palette again.,Show this palette again.,Volver a mostrar esta paleta.
+The 17-digit number in a Steam profile's URL (steamcommunity.com/profiles/...).,The 17-digit number in a Steam profile's URL (steamcommunity.com/profiles/...).,El número de 17 dígitos en la URL de un perfil de Steam (steamcommunity.com/profiles/...).
+"Their palette is blocked, so you see their original colors.","Their palette is blocked, so you see their original colors.","Su paleta está bloqueada, así que ves sus colores originales."
+They are not using a custom palette.,They are not using a custom palette.,No está usando una paleta personalizada.
+"They are not using the Improvement Mod, so they cannot send palettes.","They are not using the Improvement Mod, so they cannot send palettes.","No usa el Improvement Mod, así que no puede enviar paletas."
+Unblock,Unblock,Desbloquear
+You blocked this palette or player.,You blocked this palette or player.,Bloqueaste esta paleta o jugador.
+"from %s, %s","from %s, %s","de %s, %s"
+(looking up name...),(looking up name...),(buscando nombre...)
+Block palette (%s),Block palette (%s),Bloquear paleta (%s)
+Block user (%s),Block user (%s),Bloquear usuario (%s)
+"Never see this player's palettes, or this palette, again. Undo it any time from Palettes > Blocked palettes.","Never see this player's palettes, or this palette, again. Undo it any time from Palettes > Blocked palettes.","No volver a ver las paletas de este jugador, o esta paleta. Deshazlo cuando quieras desde Paletas > Paletas bloqueadas."
+Unblock palette (%s),Unblock palette (%s),Desbloquear paleta (%s)
+Unblock user (%s),Unblock user (%s),Desbloquear usuario (%s)
+no custom palette,no custom palette,sin paleta personalizada
+this player,this player,este jugador

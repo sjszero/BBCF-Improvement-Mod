@@ -84,4 +84,9 @@ private:
 	bool m_openDeleteConfirm = false;
 
 	PaletteEditorModal m_editor;
+
+	// The block list manager.
+	void DrawBlockedModal();
+	bool m_openBlocked = false;
+	char m_blockSteamIdInput[32] = {};
 };
