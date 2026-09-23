@@ -146,6 +146,10 @@
     <ClCompile Include="src\Overlay\Window\MainMenu\PageLookAndSound.cpp" />
     <ClCompile Include="src\Overlay\Window\MainMenu\MainMenuPages.cpp" />
     <ClCompile Include="src\Overlay\Window\PalettesConfigWindow.cpp" />
+    <ClCompile Include="src\Palette\NativePalettes.cpp" />
+    <ClCompile Include="src\Core\ScreenColorPicker.cpp" />
+    <ClCompile Include="src\Palette\EffectSheets.cpp" />
+    <ClCompile Include="src\Overlay\Window\PaletteEditorModal.cpp" />
     <ClCompile Include="src\Overlay\Window\SettingsIniWindow.cpp" />
     <ClCompile Include="src\Overlay\Window\Ranked\RankedListFilterWindow.cpp">
       <Filter>src\Overlay\Window\Ranked</Filter>
@@ -390,6 +394,10 @@
     <ClInclude Include="src\Overlay\Window\MainMenu\MainMenuNav.h" />
     <ClInclude Include="src\Overlay\Window\MainMenu\MainMenuPages.h" />
     <ClInclude Include="src\Overlay\Window\PalettesConfigWindow.h" />
+    <ClInclude Include="src\Palette\NativePalettes.h" />
+    <ClInclude Include="src\Core\ScreenColorPicker.h" />
+    <ClInclude Include="src\Palette\EffectSheets.h" />
+    <ClInclude Include="src\Overlay\Window\PaletteEditorModal.h" />
     <ClInclude Include="src\Overlay\Window\SettingsIniWindow.h" />
     <ClInclude Include="src\Overlay\Window\Ranked\RankedListFilterWindow.h">
       <Filter>src\Overlay\Window\Ranked</Filter>

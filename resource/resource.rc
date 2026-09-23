@@ -21,3 +21,7 @@
 // One idle sprite per character, as palette indices, for the palette grid's thumbnails.
 // See tools/build_palette_thumbnails.py.
 "palette_thumbnails" RCDATA "palette_thumbnails.bin"
+
+// Which palette file each effect sprite is drawn with, per character; the sprites
+// themselves are read from the game files. See tools/build_effect_palette_map.py.
+"effect_palette_map" RCDATA "effect_palette_map.bin"

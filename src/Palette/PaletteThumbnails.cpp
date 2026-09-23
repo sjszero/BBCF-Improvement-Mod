@@ -289,10 +289,104 @@ namespace
 		return true;
 	}
 
+	// Textures evicted while this frame's draw list may still point at them. They are
+	// released once a later frame starts asking for textures.
+	std::vector<std::pair<IDirect3DTexture9*, int>> g_graveyard;
+
+	void FlushGraveyard()
+	{
+		const int frame = ImGui::GetFrameCount();
+		for (size_t i = 0; i < g_graveyard.size();)
+		{
+			if (g_graveyard[i].second < frame)
+			{
+				g_graveyard[i].first->Release();
+				g_graveyard[i] = g_graveyard.back();
+				g_graveyard.pop_back();
+			}
+			else
+			{
+				i++;
+			}
+		}
+	}
+
+	// --- Editor sheet ---------------------------------------------------------------------
+	// The texture is rewritten in place on every edit rather than rebuilt, so dragging a
+	// colour picker costs one pass over the indices and no allocation. What it was last
+	// built from is kept so an unchanged frame costs a 1 KB compare.
+	IDirect3DTexture9* g_editorTexture = NULL;
+	int g_editorTextureWidth = 0;
+	int g_editorTextureHeight = 0;
+	int g_editorChar = -1;
+	std::vector<unsigned char> g_editorIndices;
+	int g_editorWidth = 0;
+	int g_editorHeight = 0;
+	unsigned char g_editorBuiltPalette[IMPL_PALETTE_DATALEN];
+	bool g_editorBuiltHasMask = false;
+	unsigned char g_editorBuiltMask[256] = {};
+	int g_editorBuiltKey = -1;
+	PaletteThumbnails::SheetFade g_editorBuiltFade;
+	int g_editorLastFrame = -1;
+
+	void ReleaseEditorSheet()
+	{
+		if (g_editorTexture)
+			g_editorTexture->Release();
+		g_editorTexture = NULL;
+		g_editorTextureWidth = g_editorTextureHeight = 0;
+		g_editorBuiltHasMask = false;
+		g_editorBuiltKey = -1;
+		g_editorChar = -1;
+		std::vector<unsigned char>().swap(g_editorIndices);
+		g_editorWidth = g_editorHeight = 0;
+	}
+
+	// The editor draws every frame it is open; a whole frame without it means it has
+	// closed, and its ~6 MB (texture plus indices) should not outlive it. This is a frame
+	// late on purpose - see the note on eviction in Get(). Called from the other texture
+	// getters, since whatever draws after the editor closes is what can notice.
+	void ReleaseAbandonedEditorSheet()
+	{
+		FlushGraveyard();
+
+		if (g_editorLastFrame >= 0 && g_editorLastFrame < ImGui::GetFrameCount() - 1)
+		{
+			ReleaseEditorSheet();
+			g_editorLastFrame = -1;
+		}
+	}
+
+	// A colour that is not the highlighted one is pulled towards the fade colour. With
+	// shading, the fade colour is scaled by the original's brightness first, so the
+	// character's shapes stay readable while the highlighted entry is the only thing
+	// left with its own colour.
+	unsigned int FadedColour(const unsigned char* bgra, const PaletteThumbnails::SheetFade& fade)
+	{
+		const float luma = (bgra[0] * 0.114f + bgra[1] * 0.587f + bgra[2] * 0.299f) / 128.0f;
+		const float scale = (1.0f - fade.shading) + fade.shading * luma;
+		const float target[3] = { fade.blue * scale, fade.green * scale, fade.red * scale };
+		unsigned int channel[3];
+		for (int c = 0; c < 3; c++)
+		{
+			float value = bgra[c] + (target[c] - bgra[c]) * fade.strength;
+			value = value < 0.0f ? 0.0f : (value > 255.0f ? 255.0f : value);
+			channel[c] = (unsigned int)(value + 0.5f);
+		}
+		const float alpha = 255.0f + (fade.opacity * 255.0f - 255.0f) * fade.strength;
+		const unsigned int a = (unsigned int)(alpha < 0.0f ? 0.0f : (alpha > 255.0f ? 255.0f : alpha) + 0.5f);
+		return (a << 24) | (channel[2] << 16) | (channel[1] << 8) | channel[0];
+	}
+
 	void Evict(std::map<CacheKey, Entry>::iterator it)
 	{
 		if (it->second.texture)
-			it->second.texture->Release();
+		{
+			if (it->second.lastUsedFrame == ImGui::GetFrameCount())
+				g_graveyard.push_back(std::make_pair(it->second.texture, it->second.lastUsedFrame));
+			else
+				it->second.texture->Release();
+		}
 		g_recency.erase(it->second.recency);
 		g_cache.erase(it);
 	}
@@ -313,6 +407,8 @@ namespace PaletteThumbnails
 	ImTextureID Get(int charIndex, const std::string& key, const char* paletteData,
 		int* outWidth, int* outHeight)
 	{
+		ReleaseAbandonedEditorSheet();
+
 		const Sprite* sprite = GetSprite(charIndex);
 		if (!sprite || !paletteData)
 			return NULL;
@@ -372,6 +468,8 @@ namespace PaletteThumbnails
 	ImTextureID GetSheet(int charIndex, const std::string& key, const char* paletteData,
 		int* outWidth, int* outHeight)
 	{
+		ReleaseAbandonedEditorSheet();
+
 		if (!paletteData)
 			return 0;
 
@@ -413,6 +511,154 @@ namespace PaletteThumbnails
 		return (ImTextureID)(uintptr_t)texture;
 	}
 
+	bool GetEditorSheetIndices(int charIndex, const unsigned char** outIndices,
+		int* outWidth, int* outHeight)
+	{
+		if (g_editorChar != charIndex)
+		{
+			std::vector<unsigned char> indices;
+			int width = 0, height = 0;
+			if (!DecodeSheet(charIndex, indices, width, height))
+				return false;
+			g_editorIndices.swap(indices);
+			g_editorWidth = width;
+			g_editorHeight = height;
+			g_editorChar = charIndex;
+		}
+
+		g_editorLastFrame = ImGui::GetFrameCount();
+		if (outIndices) *outIndices = g_editorIndices.data();
+		if (outWidth) *outWidth = g_editorWidth;
+		if (outHeight) *outHeight = g_editorHeight;
+		return true;
+	}
+
+	ImTextureID GetEditorSheet(int charIndex, const char* paletteData, const unsigned char* highlightMask,
+		const SheetFade& fade, int* outWidth, int* outHeight)
+	{
+		if (!paletteData || !GetEditorSheetIndices(charIndex, NULL, NULL, NULL))
+			return 0;
+		if (outWidth) *outWidth = g_editorWidth;
+		if (outHeight) *outHeight = g_editorHeight;
+		return GetEditorImage(charIndex, g_editorIndices.data(), g_editorWidth, g_editorHeight,
+			paletteData, highlightMask, fade);
+	}
+
+	ImTextureID GetEditorImage(int imageKey, const unsigned char* indices, int width, int height,
+		const char* paletteData, const unsigned char* highlightMask, const SheetFade& fade)
+	{
+		IDirect3DDevice9* device = Device();
+		if (!device || !indices || !paletteData || width <= 0 || height <= 0)
+			return 0;
+
+		g_editorLastFrame = ImGui::GetFrameCount();
+
+		if (g_editorTexture && g_editorBuiltKey == imageKey &&
+			g_editorTextureWidth == width && g_editorTextureHeight == height &&
+			g_editorBuiltHasMask == (highlightMask != NULL) &&
+			(!highlightMask || (memcmp(g_editorBuiltMask, highlightMask, 256) == 0 && g_editorBuiltFade == fade)) &&
+			memcmp(g_editorBuiltPalette, paletteData, IMPL_PALETTE_DATALEN) == 0)
+		{
+			return (ImTextureID)(uintptr_t)g_editorTexture;
+		}
+
+		// Recreated only when the size changes (switching between the character sheet and
+		// an effect sheet). Releasing the old one here is safe because the editor asks for
+		// its one image once per frame, before drawing it, so the old one is in no draw
+		// list yet.
+		if (!g_editorTexture || g_editorTextureWidth != width || g_editorTextureHeight != height)
+		{
+			IDirect3DTexture9* texture = NULL;
+			if (device->CreateTexture(width, height, 1, D3DUSAGE_DYNAMIC,
+				D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture, NULL) != D3D_OK)
+			{
+				return 0;
+			}
+			if (g_editorTexture)
+				g_editorTexture->Release();
+			g_editorTexture = texture;
+			g_editorTextureWidth = width;
+			g_editorTextureHeight = height;
+		}
+
+		unsigned int lut[256];
+		const unsigned char* palette = (const unsigned char*)paletteData;
+		for (int i = 0; i < 256; i++)
+		{
+			const unsigned char* entry = palette + (size_t)i * 4;
+			if (i == 0)
+				lut[i] = 0;
+			else if (highlightMask && !highlightMask[i])
+				lut[i] = FadedColour(entry, fade);
+			else
+				lut[i] = 0xFF000000u | ((unsigned int)entry[2] << 16) |
+					((unsigned int)entry[1] << 8) | entry[0];
+		}
+
+		D3DLOCKED_RECT locked;
+		if (g_editorTexture->LockRect(0, &locked, NULL, D3DLOCK_DISCARD) != D3D_OK)
+			return (ImTextureID)(uintptr_t)g_editorTexture;
+
+		for (int y = 0; y < height; y++)
+		{
+			const unsigned char* src = indices + (size_t)y * width;
+			unsigned int* dst = (unsigned int*)((unsigned char*)locked.pBits + (size_t)y * locked.Pitch);
+			for (int x = 0; x < width; x++)
+				dst[x] = lut[src[x]];
+		}
+		g_editorTexture->UnlockRect(0);
+
+		memcpy(g_editorBuiltPalette, paletteData, IMPL_PALETTE_DATALEN);
+		g_editorBuiltHasMask = highlightMask != NULL;
+		if (highlightMask)
+			memcpy(g_editorBuiltMask, highlightMask, 256);
+		g_editorBuiltKey = imageKey;
+		g_editorBuiltFade = fade;
+		return (ImTextureID)(uintptr_t)g_editorTexture;
+	}
+
+	ImTextureID GetEditorImageRGBA(int imageKey, const unsigned int* pixels, int width, int height, bool changed)
+	{
+		IDirect3DDevice9* device = Device();
+		if (!device || !pixels || width <= 0 || height <= 0)
+			return 0;
+
+		g_editorLastFrame = ImGui::GetFrameCount();
+
+		// Keys of this path are kept apart from the indexed path's, so switching back to the
+		// character sheet always rebuilds it.
+		const int builtKey = -1 - imageKey;
+		const bool sameTexture = g_editorTexture && g_editorTextureWidth == width && g_editorTextureHeight == height;
+		if (sameTexture && g_editorBuiltKey == builtKey && !changed)
+			return (ImTextureID)(uintptr_t)g_editorTexture;
+
+		// See GetEditorImage() on why releasing the old texture here is safe.
+		if (!sameTexture)
+		{
+			IDirect3DTexture9* texture = NULL;
+			if (device->CreateTexture(width, height, 1, D3DUSAGE_DYNAMIC,
+				D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture, NULL) != D3D_OK)
+			{
+				return 0;
+			}
+			if (g_editorTexture)
+				g_editorTexture->Release();
+			g_editorTexture = texture;
+			g_editorTextureWidth = width;
+			g_editorTextureHeight = height;
+		}
+
+		D3DLOCKED_RECT locked;
+		if (g_editorTexture->LockRect(0, &locked, NULL, D3DLOCK_DISCARD) != D3D_OK)
+			return (ImTextureID)(uintptr_t)g_editorTexture;
+		for (int y = 0; y < height; y++)
+			memcpy((unsigned char*)locked.pBits + (size_t)y * locked.Pitch, pixels + (size_t)y * width, (size_t)width * 4);
+		g_editorTexture->UnlockRect(0);
+
+		g_editorBuiltKey = builtKey;
+		return (ImTextureID)(uintptr_t)g_editorTexture;
+	}
+
 	void Invalidate(int charIndex, const std::string& key)
 	{
 		CacheKey cacheKey;
@@ -422,6 +668,33 @@ namespace PaletteThumbnails
 		std::map<CacheKey, Entry>::iterator hit = g_cache.find(cacheKey);
 		if (hit != g_cache.end())
 			Evict(hit);
+
+		// The detail sheet may be in this frame's draw list, so it is only marked stale;
+		// the next GetSheet() rebuilds it and releases this one, a frame from now.
+		if (!(g_sheetKey < cacheKey) && !(cacheKey < g_sheetKey))
+			g_sheetKey = CacheKey();
+	}
+
+	namespace
+	{
+		void SetPointSampling(const ImDrawList*, const ImDrawCmd*)
+		{
+			if (g_device)
+			{
+				g_device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+				g_device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			}
+		}
+	}
+
+	void BeginPointSampling(ImDrawList* drawList)
+	{
+		drawList->AddCallback(SetPointSampling, NULL);
+	}
+
+	void EndPointSampling(ImDrawList* drawList)
+	{
+		drawList->AddCallback(ImDrawCallback_ResetRenderState, NULL);
 	}
 
 	void ReleaseAll()
@@ -434,12 +707,19 @@ namespace PaletteThumbnails
 		g_cache.clear();
 		g_recency.clear();
 
+		for (size_t i = 0; i < g_graveyard.size(); i++)
+			g_graveyard[i].first->Release();
+		g_graveyard.clear();
+
 		if (g_sheetTexture)
 		{
 			g_sheetTexture->Release();
 			g_sheetTexture = NULL;
 		}
 		g_sheetKey = CacheKey();
+
+		ReleaseEditorSheet();
+		g_editorLastFrame = -1;
 	}
 
 	void Shutdown()

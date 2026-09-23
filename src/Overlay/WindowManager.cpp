@@ -11,6 +11,7 @@
 #include "Window/MainMenu/MainMenuPages.h"
 #include "Window/ReplayExtrasWindow.h"
 #include "Window/PaletteEditorWindow.h"
+#include "Window/PaletteEditorModal.h"
 #include "Window/PalettesConfigWindow.h"
 #include "Window/NetworkSquareColorWindow.h"
 #include "Window/ScrWindow.h"
@@ -886,6 +887,7 @@ void WindowManager::Render()
 	ImGui_ImplDX9_NewFrame();
 	ApplyViewportOverride();
 	ImGui::NewFrame();
+	PaletteEditorModal::BeginFrame();
 
 	// Each window answers for itself, rather than a skip list of the ones known not to want
 	// a mouse. The overlays that only draw in specific game states answer no while they are

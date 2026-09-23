@@ -34,17 +34,12 @@ namespace MainMenu
 		ImGui::HorizontalSpacing();
 		editor->ShowReloadAllPalettesButton();
 
-		ImGui::VerticalSpacing(4);
-		ImGui::HorizontalSpacing();
-		ImGui::BeginDisabled(!isPaletteEditingEnabledInCurrentState());
-		if (ImGui::Button(Messages.Palette_editor()))
-			ctx.container->GetWindow(WindowType_PaletteEditor)->ToggleOpen();
-		ImGui::EndDisabled();
-		ImGui::ShowHelpMarkerSameLine(Messages.Palette_editor_tooltip());
-
+		// Editing palettes lives in the Palettes window now (Edit palette / New palette),
+		// which works outside a match; the old in-match editor window is no longer offered.
 		if (ctx.palettesConfigWindow)
 		{
-			ImGui::SameLineOrWrap(ImGui::ButtonWidth("Palettes"));
+			ImGui::VerticalSpacing(4);
+			ImGui::HorizontalSpacing();
 			ctx.palettesConfigWindow->DrawOpenButton();
 			ImGui::ShowHelpMarkerSameLine(L("Manage the palette files on disk: which ones are loaded, importing, and sharing.").c_str());
 			ctx.palettesConfigWindow->DrawModal();

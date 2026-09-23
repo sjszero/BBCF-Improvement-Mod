@@ -2,6 +2,7 @@
 
 #include "imgui.h"
 
+#include "PaletteEditorModal.h"
 #include "Palette/impl_format.h"
 
 #include <string>
@@ -81,4 +82,6 @@ private:
 	std::string m_pendingDeletePalName;
 	int m_pendingDeleteCharIndex = 0;
 	bool m_openDeleteConfirm = false;
+
+	PaletteEditorModal m_editor;
 };

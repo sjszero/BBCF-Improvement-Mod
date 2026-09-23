@@ -177,6 +177,8 @@ void PalettesConfigWindow::RegisterLayoutSettings()
 	handler.ReadLineFn = PalettesLayout_ReadLine;
 	handler.WriteAllFn = PalettesLayout_WriteAll;
 	ImGui::AddSettingsHandler(&handler);
+
+	PaletteEditorModal::RegisterLayoutSettings();
 }
 
 void PalettesConfigWindow::DrawOpenButton()
@@ -366,6 +368,16 @@ void PalettesConfigWindow::ImportPaletteFile(const std::string& sourcePath, int 
 		{
 			ReportPaletteOutcome(("[error] Unable to import '" + fileName + "' : " + error + "\n").c_str(),
 				"Could not import " + fileName + ": " + error);
+			return;
+		}
+
+		// One page of a palette exported from the editor, not a palette: taken as the
+		// character colours it would turn effect colours into a very strange palette.
+		if (imported.paletteFile > 0)
+		{
+			const std::string message = FormatText(L("'%s' is the Effect %d page of a palette, not a whole palette. Open a palette in the editor, go to that effect file and use Import page.").c_str(),
+				fileName.c_str(), imported.paletteFile);
+			ReportPaletteOutcome(("[error] " + message + "\n").c_str(), message);
 			return;
 		}
 
@@ -741,8 +753,20 @@ void PalettesConfigWindow::DrawImportCharSelectModal()
 void PalettesConfigWindow::DrawImportButton()
 {
 	const float buttonWidth = 170.0f;
+	const float rowWidth = buttonWidth * 2.0f + ImGui::GetStyle().ItemSpacing.x;
 	ImGui::SetCursorPosX((std::max)(ImGui::GetStyle().WindowPadding.x,
-		(ImGui::GetWindowWidth() - buttonWidth) * 0.5f));
+		(ImGui::GetWindowWidth() - rowWidth) * 0.5f));
+
+	// Starts on whichever character's grid is showing, since that is usually the one
+	// you want another palette for.
+	if (ImGui::Button(L("New palette").c_str(), ImVec2(buttonWidth, 0)))
+	{
+		const int charIndex = (m_selectedGroup >= 0 && m_selectedGroup < (int)m_groups.size())
+			? m_groups[m_selectedGroup].charIndex : 0;
+		m_editor.OpenNew(charIndex);
+	}
+	ImGui::HoverTooltip(L("Make a palette from scratch, starting from one of the game's colors.").c_str());
+	ImGui::SameLine();
 
 	const bool dialogBusy = NativeFileDialog::IsOpen();
 	ImGui::BeginDisabled(dialogBusy);
@@ -1150,11 +1174,19 @@ void PalettesConfigWindow::DrawDetailPanel()
 	ImGui::TextWrapped("%s", row.name.c_str());
 	ImGui::PopFont();
 
+	// What the palette file says about itself.
+	const auto& customPalettes = g_interfaces.pPaletteManager->GetCustomPalettesVector();
+	const IMPL_info_t& info = customPalettes[group.charIndex][row.palIndex].palInfo;
+	if (info.creator[0])
+		ImGui::TextDisabled("%s %s", L("by").c_str(), info.creator);
+	if (info.desc[0])
+		ImGui::TextWrapped("%s", info.desc);
+	ImGui::TextDisabled("%s", info.hasBloom ? L("Bloom effect: on").c_str() : L("Bloom effect: off").c_str());
+
 	ImGui::Spacing();
 	ImGui::TextUnformatted(Messages.Palette_ingame_color());
 	DrawSlotCombo(group, row);
 
-	const auto& customPalettes = g_interfaces.pPaletteManager->GetCustomPalettesVector();
 	const char* paletteData = customPalettes[group.charIndex][row.palIndex].file0;
 
 	// The same sheet the PNG export produces, so what you see here is what you get.
@@ -1166,7 +1198,7 @@ void PalettesConfigWindow::DrawDetailPanel()
 	// Everything below the sheet is pinned to the bottom, so the buttons do not move
 	// around as the panel is resized.
 	const float buttonHeight = ImGui::GetFrameHeightWithSpacing();
-	const float reserved = buttonHeight * 3.0f + ImGui::GetStyle().ItemSpacing.y * 2.0f;
+	const float reserved = buttonHeight * 4.0f + ImGui::GetStyle().ItemSpacing.y * 3.0f;
 	const float sheetArea = (std::max)(60.0f, ImGui::GetContentRegionAvail().y - reserved);
 
 	ImGui::BeginChild("##sheet", ImVec2(0, sheetArea), false,
@@ -1182,6 +1214,10 @@ void PalettesConfigWindow::DrawDetailPanel()
 		ImGui::TextWrapped("%s", Messages.Palette_no_preview());
 	}
 	ImGui::EndChild();
+
+	if (ImGui::Button(L("Edit palette").c_str(), ImVec2(-1.0f, 0.0f)))
+		m_editor.OpenExisting(group.charIndex, customPalettes[group.charIndex][row.palIndex]);
+	ImGui::HoverTooltip(L("Open this palette in the editor. Click on the character to pick the color to change.").c_str());
 
 	if (ImGui::Button(Messages.Palette_export_cfpl(), ImVec2(-1.0f, 0.0f)))
 		ExportPalette(group, row, false);
@@ -1311,6 +1347,10 @@ void PalettesConfigWindow::DrawModal()
 
 	DrawImportCharSelectModal();
 	DrawDeleteConfirmModal();
+	m_editor.Draw([this]() {
+		// Register the file just written, the same way an import does.
+		g_interfaces.pPaletteManager->ReloadAllPalettes([this]() { RebuildGroupsFromDraft(); });
+	});
 
 	ImGui::EndPopup();
 }

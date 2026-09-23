@@ -791,7 +791,7 @@ Skip this version,Skip this version,Omitir esta versión
 Open release page,Open release page,Abrir página de la versión
 Update to %s,Update to %s,Actualizar a %s
 Update IM to %s,Update IM to %s,Actualizar el IM a %s
-You are running %s. Click to see what is in the new release and install it.,You are running %s. Click to see what is in the new release and install it.,Estás usando la %s. Hacé clic para ver qué trae la nueva versión e instalarla.
+You are running %s. Click to see what is in the new release and install it.,You are running %s. Click to see what is in the new release and install it.,Estás usando la %s. Haz clic para ver qué trae la nueva versión e instalarla.
 Share_your_custom_palettes,Share your custom palettes?,¿Compartir tus paletas personalizadas?
 Palette_share_popup_description,"When you play online, players who also use the Improvement Mod can already SEE the custom palette you're using.
 
@@ -1140,7 +1140,7 @@ When you rematch:,When you rematch:,Cuando pedís revancha:
 Play the track picked at Character Select,Play the track picked at Character Select,Reproducir la canción elegida en selección de personaje
 Play the next track in the playlist,Play the next track in the playlist,Reproducir la siguiente canción de la lista
 Play the last track the Jukebox played,Play the last track the Jukebox played,Reproducir la última canción que puso el Jukebox
-"What plays when you enter a match - Training, local VS or Online. Leave it on the Character Select track to keep the song the game picked; pick a playlist option to hear only the tracks you have ticked below.","What plays when you enter a match - Training, local VS or Online. Leave it on the Character Select track to keep the song the game picked; pick a playlist option to hear only the tracks you have ticked below.","Qué suena al entrar a una partida: Entrenamiento, VS local u Online. Dejalo en la canción de selección de personaje para conservar la que eligió el juego; elegí una opción de la lista para escuchar solo las canciones que tenés tildadas abajo."
+"What plays when you enter a match - Training, local VS or Online. Leave it on the Character Select track to keep the song the game picked; pick a playlist option to hear only the tracks you have ticked below.","What plays when you enter a match - Training, local VS or Online. Leave it on the Character Select track to keep the song the game picked; pick a playlist option to hear only the tracks you have ticked below.","Qué suena al entrar a una partida: Entrenamiento, VS local u Online. Dejalo en la canción de selección de personaje para conservar la que eligió el juego; elegí una opción de la lista para escuchar solo las canciones que tienes tildadas abajo."
 "What plays on the next match of a set in local VS and Online, after the victory screen. Training never gets here - it uses the setting above.","What plays on the next match of a set in local VS and Online, after the victory screen. Training never gets here - it uses the setting above.","Qué suena en la siguiente partida de una serie en VS local y Online, después de la pantalla de victoria. Entrenamiento nunca llega acá: usa la opción de arriba."
 "Turn on ""Enable Music Rotation"" above for these two to do anything.","Turn on ""Enable Music Rotation"" above for these two to do anything.","Activá ""Activar rotación de música"" arriba para que estas dos opciones hagan algo."
 Repeat Single,Repeat Single,Repetir una sola
@@ -1544,3 +1544,186 @@ Play now,Play now,Reproducir ahora
 "Plays the highlighted move on the dummy right now. Nothing is assigned or saved - the delay above is ignored too, so this is just a look at the move.","Plays the highlighted move on the dummy right now. Nothing is assigned or saved - the delay above is ignored too, so this is just a look at the move.","Reproduce el movimiento seleccionado en el muñeco ahora mismo. No se asigna ni se guarda nada, y el retardo de arriba tampoco se aplica: es solo para ver el movimiento."
 Pick a move on the left to play it.,Pick a move on the left to play it.,Elige un movimiento a la izquierda para reproducirlo.
 Playing: %s,Playing: %s,Reproduciendo: %s
+%d pixels on the sheet,%d pixels on the sheet,%d píxeles en la hoja
+Character,Character,Personaje
+Close the editor and lose the changes since the last save?,Close the editor and lose the changes since the last save?,¿Cerrar el editor y perder los cambios desde el último guardado?
+Discard,Discard,Descartar
+Edit palette,Edit palette,Editar paleta
+Edit transparency,Edit transparency,Editar transparencia
+Fit,Fit,Ajustar
+"Make a palette from scratch, starting from one of the game's colors.","Make a palette from scratch, starting from one of the game's colors.","Crea una paleta desde cero, partiendo de uno de los colores del juego."
+New palette,New palette,Nueva paleta
+Not shown on the sheet,Not shown on the sheet,No aparece en la hoja
+Open this palette in the editor. Click on the character to pick the color to change.,Open this palette in the editor. Click on the character to pick the color to change.,Abre esta paleta en el editor. Haz clic en el personaje para elegir el color a cambiar.
+Overwrite?,Overwrite?,¿Sobrescribir?
+Palette Editor,Palette Editor,Editor de paletas
+Unsaved changes,Unsaved changes,Cambios sin guardar
+(unnamed),(unnamed),(sin nombre)
+< Back,< Back,< Atrás
+"A short note about the palette, stored in the palette file.","A short note about the palette, stored in the palette file.","Una nota corta sobre la paleta, guardada en el archivo de la paleta."
+Accept,Accept,Aceptar
+Accept or cancel the color you are editing first.,Accept or cancel the color you are editing first.,Primero acepta o cancela el color que estás editando.
+Actual size: one sheet pixel per screen pixel.,Actual size: one sheet pixel per screen pixel.,Tamaño real: un píxel de la hoja por píxel de pantalla.
+Apply palette,Apply palette,Aplicar paleta
+Apply palette...,Apply palette...,Aplicar paleta...
+Canvas background,Canvas background,Fondo del lienzo
+"Click a spot on the character to edit the color that paints it. Everything else fades out, so you can see exactly what that one color covers.","Click a spot on the character to edit the color that paints it. Everything else fades out, so you can see exactly what that one color covers.","Haz clic en una parte del personaje para editar el color que la pinta. Todo lo demás se atenúa, así ves exactamente qué cubre ese color."
+"Click to choose, double-click to go straight to the next step.","Click to choose, double-click to go straight to the next step.","Clic para elegir, doble clic para ir directo al siguiente paso."
+Click to edit this color,Click to edit this color,Clic para editar este color
+Close the editor without saving. Asks first if you changed anything.,Close the editor without saving. Asks first if you changed anything.,Cierra el editor sin guardar. Pregunta antes si cambiaste algo.
+Close without saving.,Close without saving.,Cerrar sin guardar.
+Ctrl+Z / Ctrl+Y undo and redo accepted changes. Enter accepts and Escape cancels an open color.,Ctrl+Z / Ctrl+Y undo and redo accepted changes. Enter accepts and Escape cancels an open color.,Ctrl+Z / Ctrl+Y deshacen y rehacen los cambios aceptados. Enter acepta y Escape cancela el color abierto.
+Current,Current,Actual
+Done recoloring: go on to naming and saving the palette.,Done recoloring: go on to naming and saving the palette.,Listo de recolorear: seguir a nombrar y guardar la paleta.
+Drag with any mouse button to move around; scroll to zoom.,Drag with any mouse button to move around; scroll to zoom.,Arrastra con cualquier botón del mouse para moverte; la rueda hace zoom.
+Edit colors,Edit colors,Editar colores
+Fade color,Fade color,Color de atenuado
+Fade out settings,Fade out settings,Ajustes de atenuado
+Fade out settings...,Fade out settings...,Ajustes de atenuado...
+Game colors,Game colors,Colores del juego
+Go back a step. Your edits are kept unless you pick a different character or starting palette.,Go back a step. Your edits are kept unless you pick a different character or starting palette.,Volver un paso. Tus cambios se mantienen salvo que elijas otro personaje u otra paleta de inicio.
+Go back and pick another name.,Go back and pick another name.,Volver y elegir otro nombre.
+Go back to editing what you had.,Go back to editing what you had.,Volver a editar lo que tenías.
+Go on to the next step. Double-clicking a picture does the same.,Go on to the next step. Double-clicking a picture does the same.,Seguir al siguiente paso. Hacer doble clic en una imagen hace lo mismo.
+"How far faded-out parts move towards the fade color. 0% leaves them untouched, 100% replaces them.","How far faded-out parts move towards the fade color. 0% leaves them untouched, 100% replaces them.","Cuánto se acercan las partes atenuadas al color de atenuado. 0% las deja igual, 100% las reemplaza."
+"How much of each part's own light and shadow survives, so you can still make out the shapes. 0% is one flat color.","How much of each part's own light and shadow survives, so you can still make out the shapes. 0% is one flat color.","Cuánta luz y sombra propia conserva cada parte, para que se sigan distinguiendo las formas. 0% es un color plano."
+How see-through faded-out parts are. Lower lets the canvas background show through them.,How see-through faded-out parts are. Lower lets the canvas background show through them.,Qué tan transparentes son las partes atenuadas. Más bajo deja ver el fondo del lienzo a través.
+How the colors you are not editing are faded out while a color is open.,How the colors you are not editing are faded out while a color is open.,Cómo se atenúan los colores que no estás editando mientras hay un color abierto.
+How the editor works:,How the editor works:,Cómo funciona el editor:
+It is in the Palettes window under %s.,It is in the Palettes window under %s.,"Está en la ventana de Paletas, en %s."
+Keep editing.,Keep editing.,Seguir editando.
+Keep my edits,Keep my edits,Mantener mis cambios
+Keep shading,Keep shading,Conservar sombreado
+Keep your colors as they are.,Keep your colors as they are.,Dejar tus colores como están.
+Load the new pick and lose the current edits.,Load the new pick and lose the current edits.,Cargar lo nuevo y perder los cambios actuales.
+Modified,Modified,Modificado
+Name and save,Name and save,Nombrar y guardar
+Name the palette and save it.,Name the palette and save it.,Ponle nombre a la paleta y guárdala.
+Next >,Next >,Siguiente >
+No palettes match the search.,No palettes match the search.,Ninguna paleta coincide con la búsqueda.
+"One of the game's own colors, or a palette you already have. You recolor it in the next step.","One of the game's own colors, or a palette you already have. You recolor it in the next step.","Uno de los colores del juego, o una paleta que ya tengas. La recoloreas en el siguiente paso."
+Only show your palettes whose name contains this.,Only show your palettes whose name contains this.,Mostrar solo tus paletas cuyo nombre contenga esto.
+Opacity,Opacity,Opacidad
+Original,Original,Original
+Palette saved,Palette saved,Paleta guardada
+"Pick a palette to take every color from. Your current colors are replaced, but Undo brings them back.","Pick a palette to take every color from. Your current colors are replaced, but Undo brings them back.","Elige una paleta de la que tomar todos los colores. Tus colores actuales se reemplazan, pero Deshacer los recupera."
+Pick something to start from first.,Pick something to start from first.,Primero elige algo de lo que partir.
+Put back what Undo took (Ctrl+Y).,Put back what Undo took (Ctrl+Y).,Recuperar lo que quitó Deshacer (Ctrl+Y).
+Put every fade setting back how it was.,Put every fade setting back how it was.,Volver todos los ajustes de atenuado a como estaban.
+"Recolor it with the picker, then Accept to keep it or Cancel to throw it away. Clicking empty space also cancels.","Recolor it with the picker, then Accept to keep it or Cancel to throw it away. Clicking empty space also cancels.","Recoloréalo con el selector, después Aceptar para quedártelo o Cancelar para descartarlo. Hacer clic en un espacio vacío también cancela."
+Replace every color with another palette's - one of the game's or one of yours. Undo brings your colors back.,Replace every color with another palette's - one of the game's or one of yours. Undo brings your colors back.,"Reemplazar todos los colores con los de otra paleta, del juego o tuya. Deshacer recupera tus colores."
+Replace every color with the selected palette's (double-clicking a picture does the same).,Replace every color with the selected palette's (double-clicking a picture does the same).,Reemplazar todos los colores con los de la paleta elegida (doble clic en una imagen hace lo mismo).
+Replace the existing palette with this one.,Replace the existing palette with this one.,Reemplazar la paleta existente con esta.
+Reset to defaults,Reset to defaults,Restablecer valores
+Saves the palette with the bloom (glow) effect on.,Saves the palette with the bloom (glow) effect on.,Guarda la paleta con el efecto bloom (brillo) activado.
+Settings are kept; they are remembered between sessions.,Settings are kept; they are remembered between sessions.,Los ajustes se mantienen; se recuerdan entre sesiones.
+Show an alpha slider too. Most palettes never touch it; the game draws some effects with it.,Show an alpha slider too. Most palettes never touch it; the game draws some effects with it.,Mostrar también un control de alfa. La mayoría de las paletas no lo tocan; el juego dibuja algunos efectos con él.
+Start over,Start over,Empezar de nuevo
+Start over?,Start over?,¿Empezar de nuevo?
+Starting from it throws away the colors you have edited so far.,Starting from it throws away the colors you have edited so far.,Partir de ahí descarta los colores que editaste hasta ahora.
+Starting palette,Starting palette,Paleta de inicio
+Strength,Strength,Intensidad
+Take back the last accepted change (Ctrl+Z).,Take back the last accepted change (Ctrl+Z).,Deshacer el último cambio aceptado (Ctrl+Z).
+That color could not be read from the game files.,That color could not be read from the game files.,No se pudo leer ese color de los archivos del juego.
+That palette is no longer installed.,That palette is no longer installed.,Esa paleta ya no está instalada.
+"The color as it is now, before this edit. Click to go back to it.","The color as it is now, before this edit. Click to go back to it.","El color como está ahora, antes de esta edición. Clic para volver a él."
+The color behind the sheet. A different one helps when a palette's colors are close to it.,The color behind the sheet. A different one helps when a palette's colors are close to it.,El color detrás de la hoja. Cambiarlo ayuda cuando los colores de la paleta se parecen a él.
+The color faded-out parts are pulled towards. Gray keeps things neutral; something loud makes the edited color pop.,The color faded-out parts are pulled towards. Gray keeps things neutral; something loud makes the edited color pop.,El color hacia el que van las partes atenuadas. El gris es neutro; algo llamativo hace resaltar el color editado.
+"The color in the palette you started from, or last applied. Click to use it.","The color in the palette you started from, or last applied. Click to use it.","El color en la paleta de la que partiste, o la última aplicada. Clic para usarlo."
+"The swatch blocks in the corner hold the colors that do not appear on the sprites, mostly effects.","The swatch blocks in the corner hold the colors that do not appear on the sprites, mostly effects.","Los bloques de muestras de la esquina tienen los colores que no aparecen en los sprites, mayormente efectos."
+"Throw this edit away, as if you never touched it (Escape).","Throw this edit away, as if you never touched it (Escape).","Descartar esta edición, como si no la hubieras tocado (Escape)."
+What should the palette start from?,What should the palette start from?,¿De qué debería partir la paleta?
+What the color becomes if you press Accept.,What the color becomes if you press Accept.,Cómo queda el color si presionas Aceptar.
+Which character is this palette for?,Which character is this palette for?,¿Para qué personaje es esta paleta?
+"While a color is open, everything it does not paint is faded like this. Open a color to see changes live.","While a color is open, everything it does not paint is faded like this. Open a color to see changes live.","Mientras hay un color abierto, todo lo que no pinta se atenúa así. Abre un color para ver los cambios en vivo."
+Who made the palette. Stored in the palette file.,Who made the palette. Stored in the palette file.,Quién hizo la paleta. Se guarda en el archivo de la paleta.
+Write the palette to your palettes folder. It shows up in the Palettes window straight away.,Write the palette to your palettes folder. It shows up in the Palettes window straight away.,Guarda la paleta en tu carpeta de paletas. Aparece en la ventana de Paletas en el momento.
+You have no palettes for this character yet.,You have no palettes for this character yet.,Todavía no tienes paletas para este personaje.
+You picked a different character or starting palette.,You picked a different character or starting palette.,Elegiste otro personaje u otra paleta de inicio.
+Your palettes,Your palettes,Tus paletas
+Zoom in. The mouse wheel over the picture zooms too.,Zoom in. The mouse wheel over the picture zooms too.,Acercar. La rueda del mouse sobre la imagen también hace zoom.
+Zoom out. The mouse wheel over the picture zooms too.,Zoom out. The mouse wheel over the picture zooms too.,Alejar. La rueda del mouse sobre la imagen también hace zoom.
+Zoom so the whole sheet fits in the view.,Zoom so the whole sheet fits in the view.,Zoom para que entre toda la hoja en la vista.
+as it comes with the game,as it comes with the game,tal como viene en el juego
+by,by,por
+from,from,desde
+%d of 256 colors changed from %s.,%d of 256 colors changed from %s.,%d de 256 colores cambiados respecto de %s.
+"Also the file name. Letters, numbers, spaces and simple punctuation.","Also the file name. Letters, numbers, spaces and simple punctuation.","También es el nombre del archivo. Letras, números, espacios y puntuación simple."
+"Every pose and color on the reference sheet, the same picture you edited on.","Every pose and color on the reference sheet, the same picture you edited on.","Todas las poses y colores de la hoja de referencia, la misma imagen en la que editaste."
+Give the palette a name to save it.,Give the palette a name to save it.,Ponle un nombre a la paleta para guardarla.
+The character as the palette grids show it.,The character as the palette grids show it.,El personaje como lo muestran las grillas de paletas.
+This replaces the palette you opened.,This replaces the palette you opened.,Esto reemplaza la paleta que abriste.
+Whole sheet,Whole sheet,Hoja completa
+Will be saved as,Will be saved as,Se guardará como
+You already have a palette with this name. Saving asks before replacing it.,You already have a palette with this name. Saving asks before replacing it.,Ya tienes una paleta con este nombre. Al guardar se pregunta antes de reemplazarla.
+"A palette is eight sets of 256 colors: the character, and seven the game uses for that character's effects (slashes, projectiles, auras...). Choose which one to edit.","A palette is eight sets of 256 colors: the character, and seven the game uses for that character's effects (slashes, projectiles, auras...). Choose which one to edit.","Una paleta son ocho juegos de 256 colores: el personaje, y siete que el juego usa para sus efectos (cortes, proyectiles, auras...). Elige cuál editar."
+Character colors,Character colors,Colores del personaje
+Effect %d,Effect %d,Efecto %d
+From,From,Desde
+Hold to see the game,Hold to see the game,Mantener para ver el juego
+Live in training,Live in training,En vivo en entrenamiento
+Live preview off,Live preview off,Vista en vivo apagada
+Open the editor during a training match with this character and they wear the palette live while you edit - effects included.,Open the editor during a training match with this character and they wear the palette live while you edit - effects included.,"Abre el editor durante una partida de entrenamiento con este personaje y lucirá la paleta en vivo mientras editas, efectos incluidos."
+Swap,Swap,Intercambiar
+"The character in your training match is wearing this palette right now, open color included. Closing the editor puts their palette back, unless you saved.","The character in your training match is wearing this palette right now, open color included. Closing the editor puts their palette back, unless you saved.","El personaje de tu partida de entrenamiento lleva esta paleta ahora mismo, incluido el color abierto. Cerrar el editor le devuelve su paleta, salvo que hayas guardado."
+To,To,Hasta
+"While you hold this button down, the whole overlay turns see-through so you can look at the character.","While you hold this button down, the whole overlay turns see-through so you can look at the character.","Mientras mantienes apretado este botón, todo el overlay se vuelve transparente para que veas al personaje."
+%s never draws anything with this file. Its colors are still saved with the palette.,%s never draws anything with this file. Its colors are still saved with the palette.,%s nunca dibuja nada con este archivo. Sus colores igual se guardan con la paleta.
+(unused),(unused),(sin uso)
+All 256 colors of this file.,All 256 colors of this file.,Los 256 colores de este archivo.
+Color grid,Color grid,Grilla de colores
+"Effect files are shown on the effect sprites the game draws with them, read from your game files. ""Color grid"" shows all 256 colors instead. In a training match the character also shows them live.","Effect files are shown on the effect sprites the game draws with them, read from your game files. ""Color grid"" shows all 256 colors instead. In a training match the character also shows them live.","Los archivos de efectos se muestran sobre los sprites de efectos que el juego dibuja con ellos, leídos de tus archivos del juego. ""Grilla de colores"" muestra los 256 colores en su lugar. En una partida de entrenamiento el personaje también los muestra en vivo."
+No effect sprite could be read for this file; showing the colors as a grid instead.,No effect sprite could be read for this file; showing the colors as a grid instead.,No se pudo leer ningún sprite de efecto para este archivo; se muestran los colores como grilla.
+Reading the effect sprites from the game files...,Reading the effect sprites from the game files...,Leyendo los sprites de efectos de los archivos del juego...
+Show all 256 colors of this file as a grid instead of on the effect sprites. Some colors are not on any sprite and can only be reached from here.,Show all 256 colors of this file as a grid instead of on the effect sprites. Some colors are not on any sprite and can only be reached from here.,Muestra los 256 colores de este archivo como grilla en lugar de sobre los sprites de efectos. Algunos colores no están en ningún sprite y solo se alcanzan desde aquí.
+Showing the colors as a grid instead.,Showing the colors as a grid instead.,Se muestran los colores como grilla.
+"%s never draws anything with this file, so there is nothing to see it on and nothing it would change.","%s never draws anything with this file, so there is nothing to see it on and nothing it would change.","%s nunca dibuja nada con este archivo, así que no hay dónde verlo ni nada que cambie."
+1. Choose the range,1. Choose the range,1. Elige el rango
+2. Choose how,2. Choose how,2. Elige cómo
+3. Choose the new color,3. Choose the new color,3. Elige el color nuevo
+3. Choose the two colors,3. Choose the two colors,3. Elige los dos colores
+"Change a whole run of neighboring colors at once: recolor it keeping its shading, or fill it with a gradient between two colors.","Change a whole run of neighboring colors at once: recolor it keeping its shading, or fill it with a gradient between two colors.","Cambia de una vez toda una tira de colores vecinos: recolorearla conservando su sombreado, o rellenarla con un degradado entre dos colores."
+Change just the color you clicked.,Change just the color you clicked.,Cambia solo el color en el que hiciste clic.
+Detect the run this color is in,Detect the run this color is in,Detectar la tira de este color
+"Drag across the grid to choose, or Shift+click the character to move the end of the range.","Drag across the grid to choose, or Shift+click the character to move the end of the range.","Arrastra sobre la grilla para elegir, o Shift+clic en el personaje para mover el final del rango."
+End (#%03d),End (#%03d),Final (#%03d)
+"Every color in the range takes the new color's hue, and keeps how much lighter or darker it was than the one you clicked. The usual way to recolor a whole material.","Every color in the range takes the new color's hue, and keeps how much lighter or darker it was than the one you clicked. The usual way to recolor a whole material.",Cada color del rango toma el tono del color nuevo y conserva cuánto más claro u oscuro era que el que clickeaste. La forma habitual de recolorear todo un material.
+Fill the range with an even blend from a start color to an end color - what the old editor's gradient generator did.,Fill the range with an even blend from a start color to an end color - what the old editor's gradient generator did.,"Rellena el rango con una mezcla pareja de un color inicial a uno final, lo que hacía el generador de degradados del editor viejo."
+First entry of the range.,First entry of the range.,Primera entrada del rango.
+Gradient between two colors,Gradient between two colors,Degradado entre dos colores
+Guess the range from the neighbors that look like lighter and darker steps of the color you clicked.,Guess the range from the neighbors that look like lighter and darker steps of the color you clicked.,Adivina el rango a partir de los vecinos que parecen tonos más claros y más oscuros del color que clickeaste.
+Keep the change and close the picker (Enter).,Keep the change and close the picker (Enter).,Quedarse con el cambio y cerrar el selector (Enter).
+Last entry of the range.,Last entry of the range.,Última entrada del rango.
+One color,One color,Un color
+Range / gradient,Range / gradient,Rango / degradado
+"Recolor, keep the shading","Recolor, keep the shading","Recolorear, conservar el sombreado"
+Reset ends,Reset ends,Restablecer extremos
+Set the start and end back to the colors currently at the two ends of the range.,Set the start and end back to the colors currently at the two ends of the range.,Vuelve el inicio y el final a los colores que hay ahora en los dos extremos del rango.
+Start (#%03d),Start (#%03d),Inicio (#%03d)
+Swap the start and end colors.,Swap the start and end colors.,Intercambia los colores de inicio y final.
+The color for #%03d. The rest of the range follows it.,The color for #%03d. The rest of the range follows it.,El color para #%03d. El resto del rango lo sigue.
+The color the gradient ends on. Click to edit it with the picker below.,The color the gradient ends on. Click to edit it with the picker below.,El color en el que termina el degradado. Clic para editarlo con el selector de abajo.
+The color the gradient starts from. Click to edit it with the picker below.,The color the gradient starts from. Click to edit it with the picker below.,El color desde el que empieza el degradado. Clic para editarlo con el selector de abajo.
+"'%s' is the Effect %d page of a palette, not a whole palette. Open a palette in the editor, go to that effect file and use Import page.","'%s' is the Effect %d page of a palette, not a whole palette. Open a palette in the editor, go to that effect file and use Import page.","'%s' es la página Efecto %d de una paleta, no una paleta completa. Abre una paleta en el editor, ve a ese archivo de efectos y usa Importar página."
+Could not export: %s,Could not export: %s,No se pudo exportar: %s
+Could not import: %s,Could not import: %s,No se pudo importar: %s
+Export page...,Export page...,Exportar página...
+Exported %s to %s.,Exported %s to %s.,Se exportó %s a %s.
+Import page...,Import page...,Importar página...
+Imported %s into %s.,Imported %s into %s.,Se importó %s en %s.
+It was exported from %s.,It was exported from %s.,Fue exportado desde %s.
+It was made for %s.,It was made for %s.,Fue hecho para %s.
+"Replace the colors on screen with a PNG's - a page exported from here, or any palette PNG. Undo brings yours back.","Replace the colors on screen with a PNG's - a page exported from here, or any palette PNG. Undo brings yours back.","Reemplaza los colores en pantalla con los de un PNG: una página exportada desde aquí, o cualquier PNG de paleta. Deshacer recupera los tuyos."
+"Save the colors on screen - the character colors, or this effect file - as a PNG. Import it on any palette's page to copy these exact colors over.","Save the colors on screen - the character colors, or this effect file - as a PNG. Import it on any palette's page to copy these exact colors over.","Guarda los colores en pantalla (los del personaje, o este archivo de efectos) como PNG. Impórtalo en la página de cualquier paleta para copiar exactamente estos colores."
+Click anywhere to take its color...,Click anywhere to take its color...,Haz clic en cualquier lugar para tomar su color...
+"Eyedropper: pick a color from anywhere on your screen, even outside the game.","Eyedropper: pick a color from anywhere on your screen, even outside the game.","Cuentagotas: toma un color de cualquier parte de tu pantalla, incluso fuera del juego."
+Pick from screen,Pick from screen,Tomar de la pantalla
+Picking: click anywhere on the screen - in the game or outside it - to take that color. Right-click or Escape cancels.,Picking: click anywhere on the screen - in the game or outside it - to take that color. Right-click or Escape cancels.,Tomando color: haz clic en cualquier parte de la pantalla (en el juego o fuera de él) para tomar ese color. Clic derecho o Escape cancela.
+Bloom effect: off,Bloom effect: off,Efecto bloom: desactivado
+Bloom effect: on,Bloom effect: on,Efecto bloom: activado
+Ctrl+click to type an exact value.,Ctrl+click to type an exact value.,Ctrl+clic para escribir un valor exacto.
+Horizontal,Horizontal,Horizontal
+Saved to BBCF_IM\ThumbnailAdjust.txt,Saved to BBCF_IM\ThumbnailAdjust.txt,Guardado en BBCF_IM\ThumbnailAdjust.txt
+Scale,Scale,Escala
+Development tool for tuning the character thumbnails.,Development tool for tuning the character thumbnails.,Herramienta de desarrollo para ajustar las miniaturas de personajes.
+Vertical,Vertical,Vertical

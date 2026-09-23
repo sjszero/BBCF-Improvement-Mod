@@ -4097,6 +4097,555 @@ struct LocalizationKeysAccessor
 
         // Playing: %s
         inline const char* Playing_s() const { return Get("Playing: %s"); }
+
+        // %d pixels on the sheet
+        inline const char* d_pixels_on_the_sheet() const { return Get("%d pixels on the sheet"); }
+
+        // Character
+        inline const char* Character() const { return Get("Character"); }
+
+        // Close the editor and lose the changes since the last save?
+        inline const char* Close_the_editor_and_lose_the_changes_since_the_last_save() const { return Get("Close the editor and lose the changes since the last save?"); }
+
+        // Discard
+        inline const char* Discard() const { return Get("Discard"); }
+
+        // Edit palette
+        inline const char* Edit_palette() const { return Get("Edit palette"); }
+
+        // Edit transparency
+        inline const char* Edit_transparency() const { return Get("Edit transparency"); }
+
+        // Fit
+        inline const char* Fit() const { return Get("Fit"); }
+
+        // Make a palette from scratch, starting from one of the game's colors.
+        inline const char* Make_a_palette_from_scratch_starting_from_one_of_the_game_s_colors() const { return Get("Make a palette from scratch, starting from one of the game's colors."); }
+
+        // New palette
+        inline const char* New_palette() const { return Get("New palette"); }
+
+        // Not shown on the sheet
+        inline const char* Not_shown_on_the_sheet() const { return Get("Not shown on the sheet"); }
+
+        // Open this palette in the editor. Click on the character to pick the color to change.
+        inline const char* Open_this_palette_in_the_editor_Click_on_the_character_to_pick_the_color_to_change() const { return Get("Open this palette in the editor. Click on the character to pick the color to change."); }
+
+        // Overwrite?
+        inline const char* Overwrite_2() const { return Get("Overwrite?"); }
+
+        // Palette Editor
+        inline const char* Palette_Editor_2() const { return Get("Palette Editor"); }
+
+        // Unsaved changes
+        inline const char* Unsaved_changes_2() const { return Get("Unsaved changes"); }
+
+        // (unnamed)
+        inline const char* unnamed() const { return Get("(unnamed)"); }
+
+        // < Back
+        inline const char* Back() const { return Get("< Back"); }
+
+        // A short note about the palette, stored in the palette file.
+        inline const char* A_short_note_about_the_palette_stored_in_the_palette_file() const { return Get("A short note about the palette, stored in the palette file."); }
+
+        // Accept
+        inline const char* Accept() const { return Get("Accept"); }
+
+        // Accept or cancel the color you are editing first.
+        inline const char* Accept_or_cancel_the_color_you_are_editing_first() const { return Get("Accept or cancel the color you are editing first."); }
+
+        // Actual size: one sheet pixel per screen pixel.
+        inline const char* Actual_size_one_sheet_pixel_per_screen_pixel() const { return Get("Actual size: one sheet pixel per screen pixel."); }
+
+        // Apply palette
+        inline const char* Apply_palette() const { return Get("Apply palette"); }
+
+        // Apply palette...
+        inline const char* Apply_palette_2() const { return Get("Apply palette..."); }
+
+        // Canvas background
+        inline const char* Canvas_background() const { return Get("Canvas background"); }
+
+        // Click a spot on the character to edit the color that paints it. Everything else fades out, so you can see exactly what that one color covers.
+        inline const char* Click_a_spot_on_the_character_to_edit_the_color_that_paints_it_Everything_else_fades_out_so_you_can_see_exactly_what_that_one_color_covers() const { return Get("Click a spot on the character to edit the color that paints it. Everything else fades out, so you can see exactly what that one color covers."); }
+
+        // Click to choose, double-click to go straight to the next step.
+        inline const char* Click_to_choose_double_click_to_go_straight_to_the_next_step() const { return Get("Click to choose, double-click to go straight to the next step."); }
+
+        // Click to edit this color
+        inline const char* Click_to_edit_this_color() const { return Get("Click to edit this color"); }
+
+        // Close the editor without saving. Asks first if you changed anything.
+        inline const char* Close_the_editor_without_saving_Asks_first_if_you_changed_anything() const { return Get("Close the editor without saving. Asks first if you changed anything."); }
+
+        // Close without saving.
+        inline const char* Close_without_saving() const { return Get("Close without saving."); }
+
+        // Ctrl+Z / Ctrl+Y undo and redo accepted changes. Enter accepts and Escape cancels an open color.
+        inline const char* Ctrl_Z_Ctrl_Y_undo_and_redo_accepted_changes_Enter_accepts_and_Escape_cancels_an_open_color() const { return Get("Ctrl+Z / Ctrl+Y undo and redo accepted changes. Enter accepts and Escape cancels an open color."); }
+
+        // Current
+        inline const char* Current() const { return Get("Current"); }
+
+        // Done recoloring: go on to naming and saving the palette.
+        inline const char* Done_recoloring_go_on_to_naming_and_saving_the_palette() const { return Get("Done recoloring: go on to naming and saving the palette."); }
+
+        // Drag with any mouse button to move around; scroll to zoom.
+        inline const char* Drag_with_any_mouse_button_to_move_around_scroll_to_zoom() const { return Get("Drag with any mouse button to move around; scroll to zoom."); }
+
+        // Edit colors
+        inline const char* Edit_colors() const { return Get("Edit colors"); }
+
+        // Fade color
+        inline const char* Fade_color() const { return Get("Fade color"); }
+
+        // Fade out settings
+        inline const char* Fade_out_settings() const { return Get("Fade out settings"); }
+
+        // Fade out settings...
+        inline const char* Fade_out_settings_2() const { return Get("Fade out settings..."); }
+
+        // Game colors
+        inline const char* Game_colors() const { return Get("Game colors"); }
+
+        // Go back a step. Your edits are kept unless you pick a different character or starting palette.
+        inline const char* Go_back_a_step_Your_edits_are_kept_unless_you_pick_a_different_character_or_starting_palette() const { return Get("Go back a step. Your edits are kept unless you pick a different character or starting palette."); }
+
+        // Go back and pick another name.
+        inline const char* Go_back_and_pick_another_name() const { return Get("Go back and pick another name."); }
+
+        // Go back to editing what you had.
+        inline const char* Go_back_to_editing_what_you_had() const { return Get("Go back to editing what you had."); }
+
+        // Go on to the next step. Double-clicking a picture does the same.
+        inline const char* Go_on_to_the_next_step_Double_clicking_a_picture_does_the_same() const { return Get("Go on to the next step. Double-clicking a picture does the same."); }
+
+        // How far faded-out parts move towards the fade color. 0% leaves them untouched, 100% replaces them.
+        inline const char* How_far_faded_out_parts_move_towards_the_fade_color_0_leaves_them_untouched_100_replaces_them() const { return Get("How far faded-out parts move towards the fade color. 0% leaves them untouched, 100% replaces them."); }
+
+        // How much of each part's own light and shadow survives, so you can still make out the shapes. 0% is one flat color.
+        inline const char* How_much_of_each_part_s_own_light_and_shadow_survives_so_you_can_still_make_out_the_shapes_0_is_one_flat_color() const { return Get("How much of each part's own light and shadow survives, so you can still make out the shapes. 0% is one flat color."); }
+
+        // How see-through faded-out parts are. Lower lets the canvas background show through them.
+        inline const char* How_see_through_faded_out_parts_are_Lower_lets_the_canvas_background_show_through_them() const { return Get("How see-through faded-out parts are. Lower lets the canvas background show through them."); }
+
+        // How the colors you are not editing are faded out while a color is open.
+        inline const char* How_the_colors_you_are_not_editing_are_faded_out_while_a_color_is_open() const { return Get("How the colors you are not editing are faded out while a color is open."); }
+
+        // How the editor works:
+        inline const char* How_the_editor_works() const { return Get("How the editor works:"); }
+
+        // It is in the Palettes window under %s.
+        inline const char* It_is_in_the_Palettes_window_under_s() const { return Get("It is in the Palettes window under %s."); }
+
+        // Keep editing.
+        inline const char* Keep_editing() const { return Get("Keep editing."); }
+
+        // Keep my edits
+        inline const char* Keep_my_edits() const { return Get("Keep my edits"); }
+
+        // Keep shading
+        inline const char* Keep_shading() const { return Get("Keep shading"); }
+
+        // Keep your colors as they are.
+        inline const char* Keep_your_colors_as_they_are() const { return Get("Keep your colors as they are."); }
+
+        // Load the new pick and lose the current edits.
+        inline const char* Load_the_new_pick_and_lose_the_current_edits() const { return Get("Load the new pick and lose the current edits."); }
+
+        // Modified
+        inline const char* Modified() const { return Get("Modified"); }
+
+        // Name and save
+        inline const char* Name_and_save() const { return Get("Name and save"); }
+
+        // Name the palette and save it.
+        inline const char* Name_the_palette_and_save_it() const { return Get("Name the palette and save it."); }
+
+        // Next >
+        inline const char* Next() const { return Get("Next >"); }
+
+        // No palettes match the search.
+        inline const char* No_palettes_match_the_search() const { return Get("No palettes match the search."); }
+
+        // One of the game's own colors, or a palette you already have. You recolor it in the next step.
+        inline const char* One_of_the_game_s_own_colors_or_a_palette_you_already_have_You_recolor_it_in_the_next_step() const { return Get("One of the game's own colors, or a palette you already have. You recolor it in the next step."); }
+
+        // Only show your palettes whose name contains this.
+        inline const char* Only_show_your_palettes_whose_name_contains_this() const { return Get("Only show your palettes whose name contains this."); }
+
+        // Opacity
+        inline const char* Opacity() const { return Get("Opacity"); }
+
+        // Original
+        inline const char* Original() const { return Get("Original"); }
+
+        // Palette saved
+        inline const char* Palette_saved() const { return Get("Palette saved"); }
+
+        // Pick a palette to take every color from. Your current colors are replaced, but Undo brings them back.
+        inline const char* Pick_a_palette_to_take_every_color_from_Your_current_colors_are_replaced_but_Undo_brings_them_back() const { return Get("Pick a palette to take every color from. Your current colors are replaced, but Undo brings them back."); }
+
+        // Pick something to start from first.
+        inline const char* Pick_something_to_start_from_first() const { return Get("Pick something to start from first."); }
+
+        // Put back what Undo took (Ctrl+Y).
+        inline const char* Put_back_what_Undo_took_Ctrl_Y() const { return Get("Put back what Undo took (Ctrl+Y)."); }
+
+        // Put every fade setting back how it was.
+        inline const char* Put_every_fade_setting_back_how_it_was() const { return Get("Put every fade setting back how it was."); }
+
+        // Recolor it with the picker, then Accept to keep it or Cancel to throw it away. Clicking empty space also cancels.
+        inline const char* Recolor_it_with_the_picker_then_Accept_to_keep_it_or_Cancel_to_throw_it_away_Clicking_empty_space_also_cancels() const { return Get("Recolor it with the picker, then Accept to keep it or Cancel to throw it away. Clicking empty space also cancels."); }
+
+        // Replace every color with another palette's - one of the game's or one of yours. Undo brings your colors back.
+        inline const char* Replace_every_color_with_another_palette_s_one_of_the_game_s_or_one_of_yours_Undo_brings_your_colors_back() const { return Get("Replace every color with another palette's - one of the game's or one of yours. Undo brings your colors back."); }
+
+        // Replace every color with the selected palette's (double-clicking a picture does the same).
+        inline const char* Replace_every_color_with_the_selected_palette_s_double_clicking_a_picture_does_the_same() const { return Get("Replace every color with the selected palette's (double-clicking a picture does the same)."); }
+
+        // Replace the existing palette with this one.
+        inline const char* Replace_the_existing_palette_with_this_one() const { return Get("Replace the existing palette with this one."); }
+
+        // Reset to defaults
+        inline const char* Reset_to_defaults() const { return Get("Reset to defaults"); }
+
+        // Saves the palette with the bloom (glow) effect on.
+        inline const char* Saves_the_palette_with_the_bloom_glow_effect_on() const { return Get("Saves the palette with the bloom (glow) effect on."); }
+
+        // Settings are kept; they are remembered between sessions.
+        inline const char* Settings_are_kept_they_are_remembered_between_sessions() const { return Get("Settings are kept; they are remembered between sessions."); }
+
+        // Show an alpha slider too. Most palettes never touch it; the game draws some effects with it.
+        inline const char* Show_an_alpha_slider_too_Most_palettes_never_touch_it_the_game_draws_some_effects_with_it() const { return Get("Show an alpha slider too. Most palettes never touch it; the game draws some effects with it."); }
+
+        // Start over
+        inline const char* Start_over() const { return Get("Start over"); }
+
+        // Start over?
+        inline const char* Start_over_2() const { return Get("Start over?"); }
+
+        // Starting from it throws away the colors you have edited so far.
+        inline const char* Starting_from_it_throws_away_the_colors_you_have_edited_so_far() const { return Get("Starting from it throws away the colors you have edited so far."); }
+
+        // Starting palette
+        inline const char* Starting_palette() const { return Get("Starting palette"); }
+
+        // Strength
+        inline const char* Strength() const { return Get("Strength"); }
+
+        // Take back the last accepted change (Ctrl+Z).
+        inline const char* Take_back_the_last_accepted_change_Ctrl_Z() const { return Get("Take back the last accepted change (Ctrl+Z)."); }
+
+        // That color could not be read from the game files.
+        inline const char* That_color_could_not_be_read_from_the_game_files() const { return Get("That color could not be read from the game files."); }
+
+        // That palette is no longer installed.
+        inline const char* That_palette_is_no_longer_installed() const { return Get("That palette is no longer installed."); }
+
+        // The color as it is now, before this edit. Click to go back to it.
+        inline const char* The_color_as_it_is_now_before_this_edit_Click_to_go_back_to_it() const { return Get("The color as it is now, before this edit. Click to go back to it."); }
+
+        // The color behind the sheet. A different one helps when a palette's colors are close to it.
+        inline const char* The_color_behind_the_sheet_A_different_one_helps_when_a_palette_s_colors_are_close_to_it() const { return Get("The color behind the sheet. A different one helps when a palette's colors are close to it."); }
+
+        // The color faded-out parts are pulled towards. Gray keeps things neutral; something loud makes the edited color pop.
+        inline const char* The_color_faded_out_parts_are_pulled_towards_Gray_keeps_things_neutral_something_loud_makes_the_edited_color_pop() const { return Get("The color faded-out parts are pulled towards. Gray keeps things neutral; something loud makes the edited color pop."); }
+
+        // The color in the palette you started from, or last applied. Click to use it.
+        inline const char* The_color_in_the_palette_you_started_from_or_last_applied_Click_to_use_it() const { return Get("The color in the palette you started from, or last applied. Click to use it."); }
+
+        // The swatch blocks in the corner hold the colors that do not appear on the sprites, mostly effects.
+        inline const char* The_swatch_blocks_in_the_corner_hold_the_colors_that_do_not_appear_on_the_sprites_mostly_effects() const { return Get("The swatch blocks in the corner hold the colors that do not appear on the sprites, mostly effects."); }
+
+        // Throw this edit away, as if you never touched it (Escape).
+        inline const char* Throw_this_edit_away_as_if_you_never_touched_it_Escape() const { return Get("Throw this edit away, as if you never touched it (Escape)."); }
+
+        // What should the palette start from?
+        inline const char* What_should_the_palette_start_from() const { return Get("What should the palette start from?"); }
+
+        // What the color becomes if you press Accept.
+        inline const char* What_the_color_becomes_if_you_press_Accept() const { return Get("What the color becomes if you press Accept."); }
+
+        // Which character is this palette for?
+        inline const char* Which_character_is_this_palette_for() const { return Get("Which character is this palette for?"); }
+
+        // While a color is open, everything it does not paint is faded like this. Open a color to see changes live.
+        inline const char* While_a_color_is_open_everything_it_does_not_paint_is_faded_like_this_Open_a_color_to_see_changes_live() const { return Get("While a color is open, everything it does not paint is faded like this. Open a color to see changes live."); }
+
+        // Who made the palette. Stored in the palette file.
+        inline const char* Who_made_the_palette_Stored_in_the_palette_file() const { return Get("Who made the palette. Stored in the palette file."); }
+
+        // Write the palette to your palettes folder. It shows up in the Palettes window straight away.
+        inline const char* Write_the_palette_to_your_palettes_folder_It_shows_up_in_the_Palettes_window_straight_away() const { return Get("Write the palette to your palettes folder. It shows up in the Palettes window straight away."); }
+
+        // You have no palettes for this character yet.
+        inline const char* You_have_no_palettes_for_this_character_yet() const { return Get("You have no palettes for this character yet."); }
+
+        // You picked a different character or starting palette.
+        inline const char* You_picked_a_different_character_or_starting_palette() const { return Get("You picked a different character or starting palette."); }
+
+        // Your palettes
+        inline const char* Your_palettes() const { return Get("Your palettes"); }
+
+        // Zoom in. The mouse wheel over the picture zooms too.
+        inline const char* Zoom_in_The_mouse_wheel_over_the_picture_zooms_too() const { return Get("Zoom in. The mouse wheel over the picture zooms too."); }
+
+        // Zoom out. The mouse wheel over the picture zooms too.
+        inline const char* Zoom_out_The_mouse_wheel_over_the_picture_zooms_too() const { return Get("Zoom out. The mouse wheel over the picture zooms too."); }
+
+        // Zoom so the whole sheet fits in the view.
+        inline const char* Zoom_so_the_whole_sheet_fits_in_the_view() const { return Get("Zoom so the whole sheet fits in the view."); }
+
+        // as it comes with the game
+        inline const char* as_it_comes_with_the_game() const { return Get("as it comes with the game"); }
+
+        // by
+        inline const char* by() const { return Get("by"); }
+
+        // from
+        inline const char* from() const { return Get("from"); }
+
+        // %d of 256 colors changed from %s.
+        inline const char* d_of_256_colors_changed_from_s() const { return Get("%d of 256 colors changed from %s."); }
+
+        // Also the file name. Letters, numbers, spaces and simple punctuation.
+        inline const char* Also_the_file_name_Letters_numbers_spaces_and_simple_punctuation() const { return Get("Also the file name. Letters, numbers, spaces and simple punctuation."); }
+
+        // Every pose and color on the reference sheet, the same picture you edited on.
+        inline const char* Every_pose_and_color_on_the_reference_sheet_the_same_picture_you_edited_on() const { return Get("Every pose and color on the reference sheet, the same picture you edited on."); }
+
+        // Give the palette a name to save it.
+        inline const char* Give_the_palette_a_name_to_save_it() const { return Get("Give the palette a name to save it."); }
+
+        // The character as the palette grids show it.
+        inline const char* The_character_as_the_palette_grids_show_it() const { return Get("The character as the palette grids show it."); }
+
+        // This replaces the palette you opened.
+        inline const char* This_replaces_the_palette_you_opened() const { return Get("This replaces the palette you opened."); }
+
+        // Whole sheet
+        inline const char* Whole_sheet() const { return Get("Whole sheet"); }
+
+        // Will be saved as
+        inline const char* Will_be_saved_as() const { return Get("Will be saved as"); }
+
+        // You already have a palette with this name. Saving asks before replacing it.
+        inline const char* You_already_have_a_palette_with_this_name_Saving_asks_before_replacing_it() const { return Get("You already have a palette with this name. Saving asks before replacing it."); }
+
+        // A palette is eight sets of 256 colors: the character, and seven the game uses for that character's effects (slashes, projectiles, auras...). Choose which one to edit.
+        inline const char* A_palette_is_eight_sets_of_256_colors_the_character_and_seven_the_game_uses_for_that_character_s_effects_slashes_projectiles_auras_Choose_which_one_to_edit() const { return Get("A palette is eight sets of 256 colors: the character, and seven the game uses for that character's effects (slashes, projectiles, auras...). Choose which one to edit."); }
+
+        // Character colors
+        inline const char* Character_colors() const { return Get("Character colors"); }
+
+        // Effect %d
+        inline const char* Effect_d() const { return Get("Effect %d"); }
+
+        // From
+        inline const char* From_2() const { return Get("From"); }
+
+        // Hold to see the game
+        inline const char* Hold_to_see_the_game() const { return Get("Hold to see the game"); }
+
+        // Live in training
+        inline const char* Live_in_training() const { return Get("Live in training"); }
+
+        // Live preview off
+        inline const char* Live_preview_off() const { return Get("Live preview off"); }
+
+        // Open the editor during a training match with this character and they wear the palette live while you edit - effects included.
+        inline const char* Open_the_editor_during_a_training_match_with_this_character_and_they_wear_the_palette_live_while_you_edit_effects_included() const { return Get("Open the editor during a training match with this character and they wear the palette live while you edit - effects included."); }
+
+        // Swap
+        inline const char* Swap() const { return Get("Swap"); }
+
+        // The character in your training match is wearing this palette right now, open color included. Closing the editor puts their palette back, unless you saved.
+        inline const char* The_character_in_your_training_match_is_wearing_this_palette_right_now_open_color_included_Closing_the_editor_puts_their_palette_back_unless_you_saved() const { return Get("The character in your training match is wearing this palette right now, open color included. Closing the editor puts their palette back, unless you saved."); }
+
+        // To
+        inline const char* To_2() const { return Get("To"); }
+
+        // While you hold this button down, the whole overlay turns see-through so you can look at the character.
+        inline const char* While_you_hold_this_button_down_the_whole_overlay_turns_see_through_so_you_can_look_at_the_character() const { return Get("While you hold this button down, the whole overlay turns see-through so you can look at the character."); }
+
+        // %s never draws anything with this file. Its colors are still saved with the palette.
+        inline const char* s_never_draws_anything_with_this_file_Its_colors_are_still_saved_with_the_palette() const { return Get("%s never draws anything with this file. Its colors are still saved with the palette."); }
+
+        // (unused)
+        inline const char* unused() const { return Get("(unused)"); }
+
+        // All 256 colors of this file.
+        inline const char* All_256_colors_of_this_file() const { return Get("All 256 colors of this file."); }
+
+        // Color grid
+        inline const char* Color_grid() const { return Get("Color grid"); }
+
+        // Effect files are shown on the effect sprites the game draws with them, read from your game files. "Color grid" shows all 256 colors instead. In a training match the character also shows them live.
+        inline const char* Effect_files_are_shown_on_the_effect_sprites_the_game_draws_with_them_read_from_your_game_files_Color_grid_shows_all_256_colors_instead_In_a_training_match_the_character_also_shows_them_live() const { return Get("Effect files are shown on the effect sprites the game draws with them, read from your game files. \"Color grid\" shows all 256 colors instead. In a training match the character also shows them live."); }
+
+        // No effect sprite could be read for this file; showing the colors as a grid instead.
+        inline const char* No_effect_sprite_could_be_read_for_this_file_showing_the_colors_as_a_grid_instead() const { return Get("No effect sprite could be read for this file; showing the colors as a grid instead."); }
+
+        // Reading the effect sprites from the game files...
+        inline const char* Reading_the_effect_sprites_from_the_game_files() const { return Get("Reading the effect sprites from the game files..."); }
+
+        // Show all 256 colors of this file as a grid instead of on the effect sprites. Some colors are not on any sprite and can only be reached from here.
+        inline const char* Show_all_256_colors_of_this_file_as_a_grid_instead_of_on_the_effect_sprites_Some_colors_are_not_on_any_sprite_and_can_only_be_reached_from_here() const { return Get("Show all 256 colors of this file as a grid instead of on the effect sprites. Some colors are not on any sprite and can only be reached from here."); }
+
+        // Showing the colors as a grid instead.
+        inline const char* Showing_the_colors_as_a_grid_instead() const { return Get("Showing the colors as a grid instead."); }
+
+        // %s never draws anything with this file, so there is nothing to see it on and nothing it would change.
+        inline const char* s_never_draws_anything_with_this_file_so_there_is_nothing_to_see_it_on_and_nothing_it_would_change() const { return Get("%s never draws anything with this file, so there is nothing to see it on and nothing it would change."); }
+
+        // 1. Choose the range
+        inline const char* _1_Choose_the_range() const { return Get("1. Choose the range"); }
+
+        // 2. Choose how
+        inline const char* _2_Choose_how() const { return Get("2. Choose how"); }
+
+        // 3. Choose the new color
+        inline const char* _3_Choose_the_new_color() const { return Get("3. Choose the new color"); }
+
+        // 3. Choose the two colors
+        inline const char* _3_Choose_the_two_colors() const { return Get("3. Choose the two colors"); }
+
+        // Change a whole run of neighboring colors at once: recolor it keeping its shading, or fill it with a gradient between two colors.
+        inline const char* Change_a_whole_run_of_neighboring_colors_at_once_recolor_it_keeping_its_shading_or_fill_it_with_a_gradient_between_two_colors() const { return Get("Change a whole run of neighboring colors at once: recolor it keeping its shading, or fill it with a gradient between two colors."); }
+
+        // Change just the color you clicked.
+        inline const char* Change_just_the_color_you_clicked() const { return Get("Change just the color you clicked."); }
+
+        // Detect the run this color is in
+        inline const char* Detect_the_run_this_color_is_in() const { return Get("Detect the run this color is in"); }
+
+        // Drag across the grid to choose, or Shift+click the character to move the end of the range.
+        inline const char* Drag_across_the_grid_to_choose_or_Shift_click_the_character_to_move_the_end_of_the_range() const { return Get("Drag across the grid to choose, or Shift+click the character to move the end of the range."); }
+
+        // End (#%03d)
+        inline const char* End_03d() const { return Get("End (#%03d)"); }
+
+        // Every color in the range takes the new color's hue, and keeps how much lighter or darker it was than the one you clicked. The usual way to recolor a whole material.
+        inline const char* Every_color_in_the_range_takes_the_new_color_s_hue_and_keeps_how_much_lighter_or_darker_it_was_than_the_one_you_clicked_The_usual_way_to_recolor_a_whole_material() const { return Get("Every color in the range takes the new color's hue, and keeps how much lighter or darker it was than the one you clicked. The usual way to recolor a whole material."); }
+
+        // Fill the range with an even blend from a start color to an end color - what the old editor's gradient generator did.
+        inline const char* Fill_the_range_with_an_even_blend_from_a_start_color_to_an_end_color_what_the_old_editor_s_gradient_generator_did() const { return Get("Fill the range with an even blend from a start color to an end color - what the old editor's gradient generator did."); }
+
+        // First entry of the range.
+        inline const char* First_entry_of_the_range() const { return Get("First entry of the range."); }
+
+        // Gradient between two colors
+        inline const char* Gradient_between_two_colors() const { return Get("Gradient between two colors"); }
+
+        // Guess the range from the neighbors that look like lighter and darker steps of the color you clicked.
+        inline const char* Guess_the_range_from_the_neighbors_that_look_like_lighter_and_darker_steps_of_the_color_you_clicked() const { return Get("Guess the range from the neighbors that look like lighter and darker steps of the color you clicked."); }
+
+        // Keep the change and close the picker (Enter).
+        inline const char* Keep_the_change_and_close_the_picker_Enter() const { return Get("Keep the change and close the picker (Enter)."); }
+
+        // Last entry of the range.
+        inline const char* Last_entry_of_the_range() const { return Get("Last entry of the range."); }
+
+        // One color
+        inline const char* One_color() const { return Get("One color"); }
+
+        // Range / gradient
+        inline const char* Range_gradient() const { return Get("Range / gradient"); }
+
+        // Recolor, keep the shading
+        inline const char* Recolor_keep_the_shading() const { return Get("Recolor, keep the shading"); }
+
+        // Reset ends
+        inline const char* Reset_ends() const { return Get("Reset ends"); }
+
+        // Set the start and end back to the colors currently at the two ends of the range.
+        inline const char* Set_the_start_and_end_back_to_the_colors_currently_at_the_two_ends_of_the_range() const { return Get("Set the start and end back to the colors currently at the two ends of the range."); }
+
+        // Start (#%03d)
+        inline const char* Start_03d() const { return Get("Start (#%03d)"); }
+
+        // Swap the start and end colors.
+        inline const char* Swap_the_start_and_end_colors() const { return Get("Swap the start and end colors."); }
+
+        // The color for #%03d. The rest of the range follows it.
+        inline const char* The_color_for_03d_The_rest_of_the_range_follows_it() const { return Get("The color for #%03d. The rest of the range follows it."); }
+
+        // The color the gradient ends on. Click to edit it with the picker below.
+        inline const char* The_color_the_gradient_ends_on_Click_to_edit_it_with_the_picker_below() const { return Get("The color the gradient ends on. Click to edit it with the picker below."); }
+
+        // The color the gradient starts from. Click to edit it with the picker below.
+        inline const char* The_color_the_gradient_starts_from_Click_to_edit_it_with_the_picker_below() const { return Get("The color the gradient starts from. Click to edit it with the picker below."); }
+
+        // '%s' is the Effect %d page of a palette, not a whole palette. Open a palette in the editor, go to that effect file and use Import page.
+        inline const char* s_is_the_Effect_d_page_of_a_palette_not_a_whole_palette_Open_a_palette_in_the_editor_go_to_that_effect_file_and_use_Import_page() const { return Get("'%s' is the Effect %d page of a palette, not a whole palette. Open a palette in the editor, go to that effect file and use Import page."); }
+
+        // Could not export: %s
+        inline const char* Could_not_export_s() const { return Get("Could not export: %s"); }
+
+        // Could not import: %s
+        inline const char* Could_not_import_s() const { return Get("Could not import: %s"); }
+
+        // Export page...
+        inline const char* Export_page() const { return Get("Export page..."); }
+
+        // Exported %s to %s.
+        inline const char* Exported_s_to_s() const { return Get("Exported %s to %s."); }
+
+        // Import page...
+        inline const char* Import_page() const { return Get("Import page..."); }
+
+        // Imported %s into %s.
+        inline const char* Imported_s_into_s() const { return Get("Imported %s into %s."); }
+
+        // It was exported from %s.
+        inline const char* It_was_exported_from_s() const { return Get("It was exported from %s."); }
+
+        // It was made for %s.
+        inline const char* It_was_made_for_s() const { return Get("It was made for %s."); }
+
+        // Replace the colors on screen with a PNG's - a page exported from here, or any palette PNG. Undo brings yours back.
+        inline const char* Replace_the_colors_on_screen_with_a_PNG_s_a_page_exported_from_here_or_any_palette_PNG_Undo_brings_yours_back() const { return Get("Replace the colors on screen with a PNG's - a page exported from here, or any palette PNG. Undo brings yours back."); }
+
+        // Save the colors on screen - the character colors, or this effect file - as a PNG. Import it on any palette's page to copy these exact colors over.
+        inline const char* Save_the_colors_on_screen_the_character_colors_or_this_effect_file_as_a_PNG_Import_it_on_any_palette_s_page_to_copy_these_exact_colors_over() const { return Get("Save the colors on screen - the character colors, or this effect file - as a PNG. Import it on any palette's page to copy these exact colors over."); }
+
+        // Click anywhere to take its color...
+        inline const char* Click_anywhere_to_take_its_color() const { return Get("Click anywhere to take its color..."); }
+
+        // Eyedropper: pick a color from anywhere on your screen, even outside the game.
+        inline const char* Eyedropper_pick_a_color_from_anywhere_on_your_screen_even_outside_the_game() const { return Get("Eyedropper: pick a color from anywhere on your screen, even outside the game."); }
+
+        // Pick from screen
+        inline const char* Pick_from_screen() const { return Get("Pick from screen"); }
+
+        // Picking: click anywhere on the screen - in the game or outside it - to take that color. Right-click or Escape cancels.
+        inline const char* Picking_click_anywhere_on_the_screen_in_the_game_or_outside_it_to_take_that_color_Right_click_or_Escape_cancels() const { return Get("Picking: click anywhere on the screen - in the game or outside it - to take that color. Right-click or Escape cancels."); }
+
+        // Bloom effect: off
+        inline const char* Bloom_effect_off() const { return Get("Bloom effect: off"); }
+
+        // Bloom effect: on
+        inline const char* Bloom_effect_on() const { return Get("Bloom effect: on"); }
+
+        // Ctrl+click to type an exact value.
+        inline const char* Ctrl_click_to_type_an_exact_value() const { return Get("Ctrl+click to type an exact value."); }
+
+        // Horizontal
+        inline const char* Horizontal() const { return Get("Horizontal"); }
+
+        // Saved to BBCF_IM	humbnailAdjust.txt
+        inline const char* Saved_to_BBCF_IM_humbnailAdjust_txt() const { return Get("Saved to BBCF_IM	humbnailAdjust.txt"); }
+
+        // Scale
+        inline const char* Scale() const { return Get("Scale"); }
+
+        // Development tool for tuning the character thumbnails.
+        inline const char* Development_tool_for_tuning_the_character_thumbnails() const { return Get("Development tool for tuning the character thumbnails."); }
+
+        // Vertical
+        inline const char* Vertical() const { return Get("Vertical"); }
 };
 
 
