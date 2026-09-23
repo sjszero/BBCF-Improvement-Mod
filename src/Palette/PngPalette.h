@@ -25,6 +25,7 @@ namespace PngPalette
 	{
 		char characterFile[IMPL_PALETTE_DATALEN];   // always filled
 		int  charIndex = -1;                        // -1 when the PNG does not say
+		int  paletteFile = -1;                      // a page export: which file (0-7) it holds; -1 otherwise
 		bool hasExtras = false;                     // the rest of this struct is valid
 		IMPL_info_t info;
 		char effects[IMPL_PALETTE_FILES_COUNT - 1][IMPL_PALETTE_DATALEN]; // files 1..7
@@ -58,9 +59,11 @@ namespace PngPalette
 	// `charIndex` >= 0 stamps a tEXt chunk naming the character, so re-importing the file
 	// needs no prompt. Pass -1 to omit it. `extras`, when given, is the full palette data
 	// whose effect files and metadata get embedded so an import can be lossless.
+	// `paletteFile` >= 0 marks the PNG as one page of a palette (0 character colours,
+	// 1-7 an effect file), so an import can tell an effect page from a whole palette.
 	bool WriteIndexedPng(const std::string& path, int width, int height,
 		const char* paletteData, const unsigned char* pixels, std::string& outError,
-		int charIndex = -1, const IMPL_data_t* extras = nullptr);
+		int charIndex = -1, const IMPL_data_t* extras = nullptr, int paletteFile = -1);
 
 	// As above, but `imageStream` is an already-deflated PNG image stream (filtered
 	// scanlines) that is copied straight into IDAT. The mod has a zlib decompressor but

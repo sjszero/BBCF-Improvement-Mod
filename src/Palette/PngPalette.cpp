@@ -6,6 +6,10 @@
 
 #include <Windows.h>
 
+// Real deflate for exported pages; see WriteIndexedPng. Same define as PacFile.cpp.
+#define MINIZ_NO_ZLIB_COMPATIBLE_NAMES
+#include "miniz.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
@@ -18,6 +22,21 @@ namespace
 
 	// tEXt keyword carrying the CharIndex an exported palette belongs to.
 	const char* const kCharacterTextKeyword = "BBCFIM_Character";
+	// tEXt keyword carrying which of the palette's 8 files a page export holds (0 is the
+	// character colours, 1-7 the effect files).
+	const char* const kPaletteFileTextKeyword = "BBCFIM_PaletteFile";
+
+	// "<keyword>\0<digits>" -> the number, or -1.
+	int ReadNumberText(const unsigned char* data, size_t length, const char* keyword)
+	{
+		const size_t keywordLen = strlen(keyword);
+		if (length <= keywordLen || memcmp(data, keyword, keywordLen) != 0 || data[keywordLen] != 0)
+			return -1;
+		const std::string value((const char*)data + keywordLen + 1, length - keywordLen - 1);
+		if (value.empty() || value.find_first_not_of("0123456789") != std::string::npos)
+			return -1;
+		return atoi(value.c_str());
+	}
 
 	// Private chunk carrying what a PLTE cannot: the seven effect palettes and the
 	// creator/description/bloom metadata. The name is chosen against the PNG chunk-naming
@@ -226,6 +245,11 @@ namespace PngPalette
 				}
 				out.hasExtras = true;
 			}
+			else if (memcmp(type, "tEXt", 4) == 0 && out.paletteFile < 0 &&
+				ReadNumberText(data, length, kPaletteFileTextKeyword) >= 0)
+			{
+				out.paletteFile = ReadNumberText(data, length, kPaletteFileTextKeyword);
+			}
 			else if (memcmp(type, "tEXt", 4) == 0 && outCharIndex && *outCharIndex < 0)
 			{
 				// "<keyword>\0<value>"; ours names the character the palette is for.
@@ -281,7 +305,7 @@ namespace PngPalette
 	// Shared tail of both writers: everything except where IDAT's bytes come from.
 	static bool WritePngWithImageStream(const std::string& path, int width, int height,
 		const char* paletteData, const unsigned char* imageStream, size_t imageStreamLength,
-		std::string& outError, int charIndex, const IMPL_data_t* extras)
+		std::string& outError, int charIndex, const IMPL_data_t* extras, int paletteFile = -1)
 	{
 
 		unsigned char plte[kPlteLength];
@@ -333,6 +357,16 @@ namespace PngPalette
 			text.insert(text.end(), value.begin(), value.end());
 			AppendChunk(png, "tEXt", text.data(), text.size());
 		}
+		if (paletteFile >= 0)
+		{
+			std::vector<unsigned char> text;
+			const char* keyword = kPaletteFileTextKeyword;
+			text.insert(text.end(), keyword, keyword + strlen(keyword));
+			text.push_back(0);
+			const std::string value = std::to_string(paletteFile);
+			text.insert(text.end(), value.begin(), value.end());
+			AppendChunk(png, "tEXt", text.data(), text.size());
+		}
 		// Everything a PLTE cannot hold, so that re-importing this file can be lossless
 		// even on a machine that has never seen the original .cfpl.
 		if (extras)
@@ -369,7 +403,7 @@ namespace PngPalette
 
 	bool WriteIndexedPng(const std::string& path, int width, int height,
 		const char* paletteData, const unsigned char* pixels, std::string& outError,
-		int charIndex, const IMPL_data_t* extras)
+		int charIndex, const IMPL_data_t* extras, int paletteFile)
 	{
 		if (width <= 0 || height <= 0 || !pixels)
 		{
@@ -377,9 +411,8 @@ namespace PngPalette
 			return false;
 		}
 
-		// One filter byte per scanline, then one palette index per pixel. Deflated as
-		// stored blocks - see WriteIndexedPngPrecompressed for why that is the ceiling
-		// here, and why the reference sheets do not go through this path.
+		// One filter byte per scanline, then one palette index per pixel, deflated with
+		// miniz. An effect page is a few million pixels, far too big to store raw.
 		std::vector<unsigned char> raw;
 		raw.reserve((size_t)height * (1 + (size_t)width));
 		for (int y = 0; y < height; y++)
@@ -390,10 +423,20 @@ namespace PngPalette
 		}
 
 		std::vector<unsigned char> idat;
-		ZlibStore(raw, idat);
+		mz_ulong compressedLength = mz_compressBound((mz_ulong)raw.size());
+		idat.resize(compressedLength);
+		if (mz_compress2(idat.data(), &compressedLength, raw.data(), (mz_ulong)raw.size(), 9) == MZ_OK)
+		{
+			idat.resize(compressedLength);
+		}
+		else
+		{
+			idat.clear();
+			ZlibStore(raw, idat);
+		}
 
 		return WritePngWithImageStream(path, width, height, paletteData,
-			idat.data(), idat.size(), outError, charIndex, extras);
+			idat.data(), idat.size(), outError, charIndex, extras, paletteFile);
 	}
 
 	bool WriteIndexedPngPrecompressed(const std::string& path, int width, int height,
