@@ -16,4 +16,7 @@
     <LocalDebuggerWorkingDirectory>$(ProjectDir)</LocalDebuggerWorkingDirectory>
     <LocalDebuggerCommandArgumentsHistory>/c exit 0|</LocalDebuggerCommandArgumentsHistory>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDeploy|Win32'">
+    <LocalDebuggerCommandArgumentsHistory>/c exit 0|</LocalDebuggerCommandArgumentsHistory>
+  </PropertyGroup>
 </Project>
