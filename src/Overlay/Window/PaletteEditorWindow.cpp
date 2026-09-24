@@ -1,6 +1,7 @@
 #include "PaletteEditorWindow.h"
 
 #include <cfloat>
+#include <initializer_list>
 
 #include "Palette/PaletteThumbnails.h"
 
@@ -1078,8 +1079,24 @@ void PaletteEditorWindow::ShowOnlinePaletteResetButton(Player& playerHandle, uin
 
 	// "Reset palette" read as something done to your own palette; this is the opponent's,
 	// and all it does is stop showing the custom one they sent, for this match.
+	// The cell can be narrow, and a button clips rather than wraps: take the longest
+	// wording that fits. The tooltip carries the full explanation either way.
+	auto fitLabel = [](std::initializer_list<const char*> wordings) {
+		const float available = ImGui::GetContentRegionAvail().x - ImGui::GetStyle().FramePadding.x * 2.0f;
+		const char* chosen = nullptr;
+		for (const char* wording : wordings)
+		{
+			chosen = wording;
+			if (ImGui::CalcTextSize(chosen).x <= available)
+				break;
+		}
+		return chosen;
+	};
+	const std::string resetLong = L("Show original colors");
+	const std::string resetMid = L("Original colors");
+	const std::string resetShort = L("Original");
 	char resetButtonId[80];
-	sprintf_s(resetButtonId, "%s##reset%s", L("Show original colors").c_str(), btnText);
+	sprintf_s(resetButtonId, "%s##reset%s", fitLabel({ resetLong.c_str(), resetMid.c_str(), resetShort.c_str() }), btnText);
 	if (ImGui::Button(resetButtonId, ImVec2(-1.0f, 0.0f)))
 	{
 		g_interfaces.pPaletteManager->RestoreOrigPal(charPalHandle);
@@ -1103,8 +1120,9 @@ void PaletteEditorWindow::ShowOnlinePaletteResetButton(Player& playerHandle, uin
 	const OnlinePaletteManager::PaletteDownloadPermission downloadPermission =
 		received.withheld ? OnlinePaletteManager::PaletteDownloadPermission::Denied
 		: g_interfaces.pOnlinePaletteManager->GetDownloadPermission(matchPlayerIndex);
+	const std::string downloadShort = L("Download");
 	char downloadButtonId[80];
-	sprintf_s(downloadButtonId, "%s##download%s", Messages.Download_palette(), btnText);
+	sprintf_s(downloadButtonId, "%s##download%s", fitLabel({ Messages.Download_palette(), downloadShort.c_str() }), btnText);
 
 	if (downloadPermission == OnlinePaletteManager::PaletteDownloadPermission::Granted)
 	{
