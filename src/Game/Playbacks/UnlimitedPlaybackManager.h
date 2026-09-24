@@ -32,6 +32,11 @@ public:
         Trigger_ThrowTech,
         Trigger_KeyPress,
         Trigger_OnLoop,
+        // The moment the dummy recovers from being hit - hitstun running out - which is
+        // what "on hit" meant before the rework. Trigger_OnHit, the moment the dummy IS
+        // hit, is shown as "On Hitstun". Appended rather than slotted in, because the
+        // trigger number is what saved actions are keyed by.
+        Trigger_OnHitRecovery,
         Trigger_Count,
     };
 
@@ -73,7 +78,7 @@ public:
         std::string relativePath;
         bool enabled = true;
         float weight = 1.0f;
-        std::array<bool, Trigger_Count> triggerEnabled = { true, true, true, true, true, true, true };
+        std::array<bool, Trigger_Count> triggerEnabled = { true, true, true, true, true, true, true, true };
     };
 
     struct CachedPlayback {
@@ -347,6 +352,7 @@ private:
     bool ShouldTriggerGap();
     bool ShouldTriggerOnBlock();
     bool ShouldTriggerOnHit();
+    bool ShouldTriggerOnHitRecovery();
     bool ShouldTriggerThrowTech();
     std::vector<size_t> BuildCandidates(const PlaybackLibrary& library);
     bool TryGetCurrentFacingLeft(bool* outFacingLeft) const;
@@ -407,6 +413,7 @@ private:
     bool m_prevGapCondition = false;
     bool m_prevOnBlockCondition = false;
     bool m_prevOnHitCondition = false;
+    bool m_prevOnHitRecoveryCondition = false;
     bool m_prevThrowTechCondition = false;
     bool m_keyPressTriggerArmed = false;
     bool m_triggerRuntimeEnabled = true;

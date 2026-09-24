@@ -1762,3 +1762,8 @@ Unblock palette (%s),Unblock palette (%s),Desbloquear paleta (%s)
 Unblock user (%s),Unblock user (%s),Desbloquear usuario (%s)
 no custom palette,no custom palette,sin paleta personalizada
 this player,this player,este jugador
+On Hitstun,On Hitstun,En hitstun
+"the moment the dummy is hit, once per combo - a burst goes out at once, inputs once hitstun ends","the moment the dummy is hit, once per combo - a burst goes out at once, inputs once hitstun ends","en cuanto el dummy recibe un golpe, una vez por combo: el burst sale al instante, los inputs al terminar el hitstun"
+"the instant the dummy stops being hit and can act again - not during a combo, and not after a knockdown","the instant the dummy stops being hit and can act again - not during a combo, and not after a knockdown","en cuanto el dummy deja de recibir golpes y puede volver a actuar: no durante un combo, ni después de una caída"
+Original colors,Original colors,Colores originales
+Download,Download,Descargar

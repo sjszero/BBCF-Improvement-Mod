@@ -663,12 +663,13 @@ namespace
 		// times below.
 		if (trigger != UnlimitedPlaybackManager::Trigger_OnLoop)
 		{
-			// The three conditions the game counts toward, so the only three that can be
-			// anticipated: blockstun counts down, and wakeup and tech count up to the frame
-			// the dummy becomes actionable.
+			// The conditions the game counts toward, so the only ones that can be
+			// anticipated: blockstun and hitstun count down, and wakeup and tech count up to
+			// the frame the dummy becomes actionable.
 			const bool canFireEarly = (trigger == UnlimitedPlaybackManager::Trigger_Gap
 				|| trigger == UnlimitedPlaybackManager::Trigger_ThrowTech
-				|| trigger == UnlimitedPlaybackManager::Trigger_Wakeup);
+				|| trigger == UnlimitedPlaybackManager::Trigger_Wakeup
+				|| trigger == UnlimitedPlaybackManager::Trigger_OnHitRecovery);
 
 			ImGui::TextUnformatted(L("Delay").c_str());
 			ImGui::SameLine();
@@ -681,7 +682,7 @@ namespace
 			}
 			ImGui::SameLine();
 			ImGui::ShowHelpMarker(canFireEarly
-				? L("Frames between the condition and the action. Positive waits, for making a reversal late on purpose. NEGATIVE fires early, which is how a reversal's motion gets delivered before the dummy is actionable so the attack lands on the first frame it can - about the length of the motion, so -3 for a 623C. Only wakeup, the block gap and throw tech can go negative, because those are the conditions the game counts toward and can therefore be anticipated.").c_str()
+				? L("Frames between the condition and the action. Positive waits, for making a reversal late on purpose. NEGATIVE fires early, which is how a reversal's motion gets delivered before the dummy is actionable so the attack lands on the first frame it can - about the length of the motion, so -3 for a 623C. Only wakeup, the block gap, on hit and throw tech can go negative, because those are the conditions the game counts toward and can therefore be anticipated.").c_str()
 				: L("Frames to wait after the trigger condition before the action starts, for making a reversal late on purpose.").c_str());
 			if (canFireEarly && config.delayFrames < 0)
 			{

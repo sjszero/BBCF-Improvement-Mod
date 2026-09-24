@@ -415,6 +415,9 @@ std::string TriggerKeyName(UnlimitedPlaybackManager::TriggerType t) {
     case UnlimitedPlaybackManager::Trigger_ThrowTech: return "throwtech";
     case UnlimitedPlaybackManager::Trigger_KeyPress: return "keypress";
     case UnlimitedPlaybackManager::Trigger_OnLoop: return "onloop";
+    // "onhit" stays the key of the hitstun trigger it has always saved, so existing labs
+    // load unchanged.
+    case UnlimitedPlaybackManager::Trigger_OnHitRecovery: return "onhitrecovery";
     default: return "unknown";
     }
 }
@@ -424,10 +427,11 @@ const char* TriggerDisplayName(UnlimitedPlaybackManager::TriggerType t) {
     case UnlimitedPlaybackManager::Trigger_Wakeup: return L("Wakeup").c_str();
     case UnlimitedPlaybackManager::Trigger_Gap: return L("Gap").c_str();
     case UnlimitedPlaybackManager::Trigger_OnBlock: return L("On Block").c_str();
-    case UnlimitedPlaybackManager::Trigger_OnHit: return L("On Hit").c_str();
+    case UnlimitedPlaybackManager::Trigger_OnHit: return L("On Hitstun").c_str();
     case UnlimitedPlaybackManager::Trigger_ThrowTech: return L("Throw Tech").c_str();
     case UnlimitedPlaybackManager::Trigger_KeyPress: return L("Key Press").c_str();
     case UnlimitedPlaybackManager::Trigger_OnLoop: return L("On loop").c_str();
+    case UnlimitedPlaybackManager::Trigger_OnHitRecovery: return L("On Hit").c_str();
     default: return L("Unknown").c_str();
     }
 }
@@ -441,6 +445,7 @@ UnlimitedPlaybackManager::TriggerType ParseTriggerKey(const std::string& s, bool
     if (s == "throwtech") return UnlimitedPlaybackManager::Trigger_ThrowTech;
     if (s == "keypress") return UnlimitedPlaybackManager::Trigger_KeyPress;
     if (s == "onloop") return UnlimitedPlaybackManager::Trigger_OnLoop;
+    if (s == "onhitrecovery") return UnlimitedPlaybackManager::Trigger_OnHitRecovery;
     *ok = false;
     return UnlimitedPlaybackManager::Trigger_Wakeup;
 }
@@ -585,6 +590,7 @@ void UnlimitedPlaybackManager::Tick() {
         m_prevGapCondition = false;
         m_prevOnBlockCondition = false;
         m_prevOnHitCondition = false;
+        m_prevOnHitRecoveryCondition = false;
         m_prevThrowTechCondition = false;
         StopLoop(nullptr);
         ClearLoopCustomSnapshot();
@@ -680,6 +686,7 @@ void UnlimitedPlaybackManager::Tick() {
     TryFireTrigger(Trigger_Gap, frame);
     TryFireTrigger(Trigger_OnBlock, frame);
     TryFireTrigger(Trigger_OnHit, frame);
+    TryFireTrigger(Trigger_OnHitRecovery, frame);
     TryFireTrigger(Trigger_ThrowTech, frame);
 }
 
@@ -728,6 +735,7 @@ void UnlimitedPlaybackManager::ResetTriggerRuntimeState(bool enableRuntime) {
     m_prevGapCondition = false;
     m_prevOnBlockCondition = false;
     m_prevOnHitCondition = false;
+    m_prevOnHitRecoveryCondition = false;
     m_prevThrowTechCondition = false;
     m_keyPressTriggerArmed = false;
     LogRuntimeGateState("ResetTriggerRuntimeState end");
@@ -832,6 +840,7 @@ void UnlimitedPlaybackManager::OnMatchEnd() {
     m_prevGapCondition = false;
     m_prevOnBlockCondition = false;
     m_prevOnHitCondition = false;
+    m_prevOnHitRecoveryCondition = false;
     m_prevThrowTechCondition = false;
     m_keyPressTriggerArmed = false;
     StopLoop(nullptr);
@@ -2363,6 +2372,7 @@ bool UnlimitedPlaybackManager::TryFireTrigger(TriggerType trigger, int currentFr
     case Trigger_Gap: shouldFire = ShouldTriggerGap(); break;
     case Trigger_OnBlock: shouldFire = ShouldTriggerOnBlock(); break;
     case Trigger_OnHit: shouldFire = ShouldTriggerOnHit(); break;
+    case Trigger_OnHitRecovery: shouldFire = ShouldTriggerOnHitRecovery(); break;
     case Trigger_ThrowTech: shouldFire = ShouldTriggerThrowTech(); break;
     default: break;
     }
@@ -3683,6 +3693,43 @@ bool UnlimitedPlaybackManager::ShouldTriggerOnHit() {
     }
     m_onHitBurstLatched = true;
     return true;
+}
+
+bool UnlimitedPlaybackManager::ShouldTriggerOnHitRecovery() {
+    if (g_interfaces.player2.IsCharDataNullPtr()) {
+        return false;
+    }
+
+    // The moment the dummy stops being hit: the last frame of hitstun, the way libre's
+    // lab had it. A combo keeps topping hitstun up so it never gets there; a reset or a
+    // dropped combo lets it run out, and that is when this fires - "can I act again yet".
+    //
+    // Hitstun is a countdown, so this can be anticipated exactly like the block gap: a
+    // negative delay fires that many frames before the dummy can act, which is how a
+    // reversal's motion gets in so the attack lands on the first frame it can.
+    //
+    // A knockdown or a bounce does not end in the dummy acting - it ends on the floor, and
+    // getting up from there is On Wakeup's job - so those states are left out, along with
+    // a tech in progress.
+    const auto* p2 = g_interfaces.player2.GetData();
+    const std::string currentAction = p2->currentAction;
+    static const std::array<const char*, 4> endsInWakeup = {
+        "Loop", "Bound", "CmnActBDownCrash", "CmnActBDownDown"
+    };
+    bool knockedDown = false;
+    for (const char* token : endsInWakeup) {
+        if (currentAction.find(token) != std::string::npos) {
+            knockedDown = true;
+            break;
+        }
+    }
+    const bool teching = currentAction.find("CmnActUkemi") != std::string::npos;
+    const int lead = (std::max)(0, -m_triggers[Trigger_OnHitRecovery].delayFrames);
+    const bool cond = !knockedDown && !teching && p2->hitstun == 1 + lead;
+
+    const bool edge = (cond && !m_prevOnHitRecoveryCondition);
+    m_prevOnHitRecoveryCondition = cond;
+    return edge;
 }
 
 bool UnlimitedPlaybackManager::ShouldTriggerThrowTech() {

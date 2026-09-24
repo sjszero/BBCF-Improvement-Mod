@@ -4751,6 +4751,21 @@ struct LocalizationKeysAccessor
 
         // this player
         inline const char* this_player() const { return Get("this player"); }
+
+        // On Hitstun
+        inline const char* On_Hitstun() const { return Get("On Hitstun"); }
+
+        // the moment the dummy is hit, once per combo - a burst goes out at once, inputs once hitstun ends
+        inline const char* the_moment_the_dummy_is_hit_once_per_combo_a_burst_goes_out_at_once_inputs_once_hitstun_ends() const { return Get("the moment the dummy is hit, once per combo - a burst goes out at once, inputs once hitstun ends"); }
+
+        // the instant the dummy stops being hit and can act again - not during a combo, and not after a knockdown
+        inline const char* the_instant_the_dummy_stops_being_hit_and_can_act_again_not_during_a_combo_and_not_after_a_knockdown() const { return Get("the instant the dummy stops being hit and can act again - not during a combo, and not after a knockdown"); }
+
+        // Original colors
+        inline const char* Original_colors() const { return Get("Original colors"); }
+
+        // Download
+        inline const char* Download() const { return Get("Download"); }
 };
 
 

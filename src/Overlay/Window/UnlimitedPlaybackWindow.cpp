@@ -73,10 +73,11 @@ const char* TriggerLabel(UnlimitedPlaybackManager::TriggerType t) {
     case UnlimitedPlaybackManager::Trigger_Wakeup: return L("Wakeup").c_str();
     case UnlimitedPlaybackManager::Trigger_Gap: return L("Gap").c_str();
     case UnlimitedPlaybackManager::Trigger_OnBlock: return L("On Block").c_str();
-    case UnlimitedPlaybackManager::Trigger_OnHit: return L("On Hit").c_str();
+    case UnlimitedPlaybackManager::Trigger_OnHit: return L("On Hitstun").c_str();
     case UnlimitedPlaybackManager::Trigger_ThrowTech: return L("Throw Tech").c_str();
     case UnlimitedPlaybackManager::Trigger_KeyPress: return L("Key Press").c_str();
     case UnlimitedPlaybackManager::Trigger_OnLoop: return L("On loop").c_str();
+    case UnlimitedPlaybackManager::Trigger_OnHitRecovery: return L("On Hit").c_str();
     default: return L("Unknown").c_str();
     }
 }
@@ -1261,7 +1262,8 @@ void UnlimitedPlaybackWindow::Draw() {
         TriggerLabel(UnlimitedPlaybackManager::Trigger_OnHit),
         TriggerLabel(UnlimitedPlaybackManager::Trigger_ThrowTech),
         TriggerLabel(UnlimitedPlaybackManager::Trigger_KeyPress),
-        TriggerLabel(UnlimitedPlaybackManager::Trigger_OnLoop)
+        TriggerLabel(UnlimitedPlaybackManager::Trigger_OnLoop),
+        TriggerLabel(UnlimitedPlaybackManager::Trigger_OnHitRecovery)
     };
     selectedTriggerType = -1;
     for (int i = 0; i < UnlimitedPlaybackManager::Trigger_Count; ++i) {

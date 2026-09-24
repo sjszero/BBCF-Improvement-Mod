@@ -48,7 +48,7 @@ public:
 		Source_File,          // one playback file
 		Source_Animation,     // one or more of the dummy's own script states
 		Source_CfSlot,        // one of the game's four recording slots
-		Source_Burst,         // burst out of it, On Hit only
+		Source_Burst,         // burst out of it, On Hitstun (Trigger_OnHit) only
 		Source_Count,
 	};
 
@@ -106,7 +106,8 @@ public:
 	// Which sources a given trigger will accept. Two rules, both about the trigger's own
 	// nature rather than about the UI:
 	//
-	//   - Burst is an answer to being hit, so it means nothing anywhere but On Hit.
+	//   - Burst is an answer to being hit, so it means nothing anywhere but On Hitstun
+	//     (Trigger_OnHit) - by On Hit (Trigger_OnHitRecovery) the combo is already over.
 	//   - Animation forces one of the dummy's script states outright, ignoring whether the
 	//     game would let that state start. On Hit and On Block the dummy is in hitstun or
 	//     blockstun, and forcing a move out of either is the dummy breaking the game's own

@@ -22,6 +22,7 @@ const std::vector<DummyActionManager::TriggerType>& DummyActionManager::TriggerO
 	static const std::vector<TriggerType> order = {
 		UnlimitedPlaybackManager::Trigger_Wakeup,
 		UnlimitedPlaybackManager::Trigger_Gap,
+		UnlimitedPlaybackManager::Trigger_OnHitRecovery,
 		UnlimitedPlaybackManager::Trigger_OnHit,
 		UnlimitedPlaybackManager::Trigger_KeyPress,
 		UnlimitedPlaybackManager::Trigger_OnLoop,
@@ -38,7 +39,8 @@ const char* DummyActionManager::TriggerLabel(TriggerType trigger)
 	case UnlimitedPlaybackManager::Trigger_Wakeup:    return "On Wakeup";
 	case UnlimitedPlaybackManager::Trigger_Gap:       return "On Block Gap";
 	case UnlimitedPlaybackManager::Trigger_OnBlock:   return "On Block";
-	case UnlimitedPlaybackManager::Trigger_OnHit:     return "On Hit";
+	case UnlimitedPlaybackManager::Trigger_OnHit:     return "On Hitstun";
+	case UnlimitedPlaybackManager::Trigger_OnHitRecovery: return "On Hit";
 	case UnlimitedPlaybackManager::Trigger_ThrowTech: return "On Throw Tech";
 	case UnlimitedPlaybackManager::Trigger_KeyPress:  return "On Hotkey";
 	case UnlimitedPlaybackManager::Trigger_OnLoop:    return "On Loop";
@@ -60,7 +62,9 @@ const char* DummyActionManager::TriggerWhen(TriggerType trigger)
 	case UnlimitedPlaybackManager::Trigger_OnHit:
 		// Burst is handed to the game as the dummy is hit, so it breaks the combo;
 		// anything made of inputs has to wait for hitstun to end to come out at all.
-		return "when the dummy is hit - a burst goes out at once, inputs once hitstun ends";
+		return "the moment the dummy is hit, once per combo - a burst goes out at once, inputs once hitstun ends";
+	case UnlimitedPlaybackManager::Trigger_OnHitRecovery:
+		return "the instant the dummy stops being hit and can act again - not during a combo, and not after a knockdown";
 	case UnlimitedPlaybackManager::Trigger_ThrowTech:
 		return "after the dummy techs a throw";
 	case UnlimitedPlaybackManager::Trigger_KeyPress:
