@@ -9,9 +9,12 @@
 #include <ctime>
 #include <cstdlib>
 #include <array>
+#include <atomic>
 #include <map>
 #include <memory>
 #include <vector>
+#include <utility>
+#include <exception>
 #include "SnapshotApparatus.h"
 #include <detours.h>
 //#include "Core/Interfaces.h"
@@ -1411,12 +1414,58 @@ void LogSlotNeighborhood(SnapshotManager* snap_manager, int slotIndex) {
 			? FastDigest32Local(s._ptr_buf_saved_frame, digestSize)
 			: 0;
 		LOG(1,
-			"[Snapshot][SLOTS] idx=%d ptr=%p size=%d frame=%u digest=0x%08X\n",
+			"[Snapshot][SLOTS] idx=%d ptr=%p size=%d frame=%u contiguousLegacyDigest=0x%08X (not comparable with packed copy)\n",
 			idx,
 			s._ptr_buf_saved_frame,
 			size,
 			s._framecount,
 			digest);
+	}
+}
+
+// Read-only native registration probe. Disassembly: 0x783F20 -> 0x7857E0 ->
+// 0x786490 compares the loader argument with ten pointers at table+4+i*0x48.
+// Runtime logs and GhidraDefs.h confirm table == SnapshotManager's slot descriptors.
+void LogNativeRegistration(const char* tag, SnapshotManager* manager, int physical) {
+	if (!manager || physical < 0 || physical >= SnapshotSlotPool::kSlotCount) return;
+// The load callback can change game-owned pointers; guard the descriptor too.
+	__try {
+		const auto& slot = manager->_saved_states_related_struct[physical];
+		const void* buffer = slot._ptr_buf_saved_frame;
+		LOG(1, "[Snapshot][REG] %s physical=%d manager=%p buffer=%p size=%d frame=%u\n",
+			tag, physical, manager, buffer, slot.field2_0x8, slot._framecount);
+		char* base = GetBbcfBaseAdress();
+		if (!base) return;
+		// VA 0x182A924 (image base 0x400000) -> global context; +0x170
+// supplies the table object passed to 0x786490.
+		const uintptr_t context = *reinterpret_cast<const uintptr_t*>(base + 0x142A924);
+		if (!context) return;
+		const uintptr_t table = *reinterpret_cast<const uintptr_t*>(context + 0x170);
+		if (!table) return;
+		int hit = -1;
+		for (int i = 0; i < 10; ++i) {
+			const uintptr_t record = table + static_cast<uintptr_t>(i) * 0x48;
+			const void* registered = *reinterpret_cast<void* const*>(record + 4);
+			LOG(1, "[Snapshot][REG] %s entry=%d record=%p registered=%p%s\n",
+				tag, i, reinterpret_cast<const void*>(record), registered,
+				registered == buffer && buffer ? " MATCH" : "");
+			if (registered == buffer && buffer) hit = i;
+		}
+		LOG(1, "[Snapshot][REG] %s table=%p hit=%d physical=%d (indices not assumed equal)\n",
+			tag, reinterpret_cast<const void*>(table), hit, physical);
+		if (hit >= 0) {
+			const unsigned char* record = reinterpret_cast<const unsigned char*>(
+				table + static_cast<uintptr_t>(hit) * 0x48);
+			for (int offset = 0; offset < 0x48; offset += 8) {
+				LOG(1, "[Snapshot][REG] %s hit=%d +%02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+					tag, hit, offset, record[offset], record[offset+1], record[offset+2], record[offset+3],
+					record[offset+4], record[offset+5], record[offset+6], record[offset+7]);
+			}
+		}
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		LOG(1, "[Snapshot][REG] %s unreadable native lookup chain/record (code=0x%08X)\n",
+			tag, GetExceptionCode());
 	}
 }
 
@@ -2283,9 +2332,15 @@ SnapshotApparatus::~SnapshotApparatus() {
 }
 
 bool SnapshotApparatus::ReserveSlots(const char* owner, int count) {
+	// An epoch changes even on failed reacquisition; old captures must not regain validity.
+	static std::atomic<uint64_t> nextReservationEpoch{0};
+	m_reservationEpoch = nextReservationEpoch.fetch_add(1, std::memory_order_relaxed) + 1;
 	if (slots_reserved) {
 		SnapshotSlotPool::Release(slot_base, slot_count);
 		slots_reserved = false;
+	}
+	for (auto& state : m_slotWrites) {
+		state.captureAllowed = false;
 	}
 
 	const int base = SnapshotSlotPool::Acquire(owner, count);
@@ -2314,21 +2369,69 @@ int SnapshotApparatus::last_saved_slot() const {
 	if (this->snapshot_count == 0) {
 		return -1;
 	}
-	return static_cast<int>((this->snapshot_count - 1) % static_cast<unsigned int>(slot_count));
+	return m_lastSavedPhysicalSlot >= 0
+		? m_lastSavedPhysicalSlot - slot_base
+		: static_cast<int>((this->snapshot_count - 1) % static_cast<unsigned int>(slot_count));
 }
 
 bool SnapshotApparatus::save_snapshot(Snapshot** pbuf_mine)
 {/* leave pbuf_mine as zero to not involve out own buffers and just the "built in" snapshot buffer of 10*/
-	return save_into_slot(this->slot_for(this->snapshot_count), pbuf_mine);
+	if (slots_reserved) {
+		return save_into_slot(this->slot_for(this->snapshot_count), pbuf_mine);
+	}
+
+	// Legacy rolling consumers share only the currently unclaimed part of the ring. Advance
+	// the cursor past reserved slots so a failed reservation can never overwrite another owner.
+	const unsigned int oldCount = this->snapshot_count;
+	for (unsigned int offset = 0; offset < static_cast<unsigned int>(slot_count); ++offset) {
+		const unsigned int logicalIndex = (oldCount + offset) % static_cast<unsigned int>(slot_count);
+		const int targetSlot = this->slot_for(logicalIndex);
+		if (SnapshotSlotPool::IsReserved(targetSlot)) {
+			continue;
+		}
+		this->snapshot_count = logicalIndex;
+		if (save_into_slot(targetSlot, pbuf_mine)) {
+			return true;
+		}
+		this->snapshot_count = oldCount;
+		return false;
+	}
+
+	LOG(1, "[Snapshot] save_snapshot failed: all ring slots are reserved\n");
+	return false;
 }
 
 bool SnapshotApparatus::save_snapshot_index(int logicalIndex)
 {
-	return save_into_slot(this->slot_for(static_cast<unsigned int>(logicalIndex < 0 ? 0 : logicalIndex)), nullptr);
+	if (logicalIndex < 0 || logicalIndex >= slot_count) {
+		LOG(1, "[Snapshot] save_snapshot_index rejected logical=%d slot_count=%d\n",
+			logicalIndex, slot_count);
+		return false;
+	}
+	const int physical_slot = this->slot_for(static_cast<unsigned int>(logicalIndex));
+	LOG(1, "[Snapshot] save_snapshot_index logical=%d physical=%d slot_base=%d slot_count=%d\n",
+		logicalIndex, physical_slot, slot_base, slot_count);
+	return save_into_slot(physical_slot, nullptr);
 }
 
 bool SnapshotApparatus::save_into_slot(int target_slot, Snapshot** pbuf_mine)
 {
+	if (target_slot < 0 || target_slot >= SnapshotSlotPool::kSlotCount) {
+		LOG(1, "[Snapshot] save_snapshot rejected invalid slot=%d\n", target_slot);
+		return false;
+	}
+	if (slots_reserved) {
+		if (target_slot < slot_base || target_slot >= slot_base + slot_count) {
+			LOG(1, "[Snapshot] save_snapshot rejected out-of-range slot=%d owned=%d..%d\n",
+				target_slot, slot_base, slot_base + slot_count - 1);
+			return false;
+		}
+	}
+	else if (SnapshotSlotPool::IsReserved(target_slot)) {
+		LOG(1, "[Snapshot] save_snapshot rejected reserved slot=%d\n", target_slot);
+		return false;
+	}
+
 	LOG(1, "[Snapshot] save_snapshot begin this=%p snapshot_count=%u pbuf_mine=%p\n", this, this->snapshot_count, pbuf_mine);
 	LogSnapshotRuntimeContext("save_snapshot");
 	char* base_addr = GetBbcfBaseAdress();
@@ -2344,8 +2447,14 @@ bool SnapshotApparatus::save_into_slot(int target_slot, Snapshot** pbuf_mine)
 		LOG(1, "[Snapshot] save_snapshot failed: DAT_on_load_4_addr null\n");
 		return false;
 	}
-
+	if (slots_reserved && slot_count == 6 && target_slot < slot_base + 2)
+		LogNativeRegistration("before-save", snap_manager, target_slot);
 	unsigned char** pbuf = &snap_manager->_saved_states_related_struct[target_slot]._ptr_buf_saved_frame;
+	// Invalidate before free/save: failure or allocator address reuse must not revive old copies.
+	auto& writeState = m_slotWrites[target_slot];
+	++writeState.serial;
+	writeState.captureAllowed = false;
+	writeState.quarantined = true; // A failed replacement must not leave a loadable stale slot.
 	//unsigned char** pbuf = (unsigned char**)&snap_manager->_saved_states_related_struct[0]._ptr_buf_saved_frame;
 	int checksum = 0;
 	int counter_of_some_sort = 1;
@@ -2374,13 +2483,18 @@ bool SnapshotApparatus::save_into_slot(int target_slot, Snapshot** pbuf_mine)
 	}
 	LOG(1, "[Snapshot] save_snapshot ok: slot=%d size=%d\n", target_slot, sizeofstate);
 	this->last_saved_snapshot_size = sizeofstate;
+	m_lastSavedPhysicalSlot = target_slot;
 	snap_manager->_saved_states_related_struct[target_slot].field2_0x8 = sizeofstate;
 	snap_manager->_saved_states_related_struct[target_slot]._framecount = *g_gameVals.pFrameCount;
+	if (slots_reserved && slot_count == 6 && target_slot < slot_base + 2)
+		LogNativeRegistration("after-save", snap_manager, target_slot);
 	this->snapshot_count += 1;
 	if (pbuf_mine != 0 && *pbuf_mine != 0 && *pbuf != 0) {
 		memset(*pbuf_mine, 0, kSnapshotBytes);
 		memcpy(*pbuf_mine, *pbuf, static_cast<size_t>(sizeofstate));
 	}
+	writeState.quarantined = false;
+	writeState.captureAllowed = true;
 	return true;
 }
 bool SnapshotApparatus::save_snapshot_prealloc()
@@ -2425,12 +2539,29 @@ bool SnapshotApparatus::load_snapshot(Snapshot* buf)
 
 bool SnapshotApparatus::load_snapshot_sized(const void* buf, size_t buf_size)
 {
+	return LoadSnapshotSizedInternal(buf, buf_size, /*preserveSlotBookkeeping=*/false);
+}
+
+bool SnapshotApparatus::RestoreExternalBytes(const void* buf, size_t buf_size)
+{
+	// The native loader resolves this address through its internal ten-entry table.
+	// An arbitrary byte buffer is not a registered state; a failed lookup yields -1
+	// and the game subsequently uses that as an index. Fail before patching or loading.
+	LOG(1, "[Snapshot][BYTES] restore disabled: unregistered buffer=%p size=%u\n",
+		buf, static_cast<unsigned int>(buf_size));
+	return false;
+}
+
+bool SnapshotApparatus::LoadSnapshotSizedInternal(const void* buf, size_t buf_size,
+	bool preserveSlotBookkeeping)
+{
 	/* leave buf as zero to not involve our own buffers and just the "built in" snapshot buffer of 10*/
-	LOG(1, "[Snapshot] load_snapshot_sized requested this=%p buf=%p buf_size=%u snapshot_count=%u\n",
+	LOG(1, "[Snapshot] load_snapshot_sized requested this=%p buf=%p buf_size=%u snapshot_count=%u preserve=%d\n",
 		this,
 		buf,
 		static_cast<unsigned int>(buf_size),
-		this->snapshot_count);
+		this->snapshot_count,
+		preserveSlotBookkeeping ? 1 : 0);
 	LogSnapshotRuntimeContext("load_snapshot_sized");
 	char* base_addr = GetBbcfBaseAdress();
 	
@@ -2451,7 +2582,13 @@ bool SnapshotApparatus::load_snapshot_sized(const void* buf, size_t buf_size)
 		LOG(1, "[Snapshot] load_snapshot_sized failed: no internal snapshot available\n");
 		return false;
 	}
-	const int slot_index = (this->snapshot_count == 0) ? this->slot_for(0) : this->slot_for(this->snapshot_count - 1);
+	const int slot_index = (!hasExternalBuffer && m_lastSavedPhysicalSlot >= 0)
+		? m_lastSavedPhysicalSlot
+		: ((this->snapshot_count == 0) ? this->slot_for(0) : this->slot_for(this->snapshot_count - 1));
+	if (!hasExternalBuffer && !slots_reserved && SnapshotSlotPool::IsReserved(slot_index)) {
+		LOG(1, "[Snapshot] load_snapshot_sized rejected reserved slot=%d\n", slot_index);
+		return false;
+	}
 	auto& slot_state = snap_manager->_saved_states_related_struct[slot_index];
 	LOG(1, "[Snapshot] load_snapshot_sized slot_index=%d slot_ptr=%p field2_0x8=%d framecount=%u\n",
 		slot_index,
@@ -2476,15 +2613,25 @@ bool SnapshotApparatus::load_snapshot_sized(const void* buf, size_t buf_size)
 		// Feed the external snapshot bytes directly into load_game_state to avoid cross-context
 		// alloc/copy mismatches that corrupt heap metadata.
 		load_buf = (unsigned char*)buf;
-		slot_state.field2_0x8 = static_cast<int>(buf_size);
-		this->last_saved_snapshot_size = static_cast<int>(buf_size);
-		if (this->snapshot_count == 0) {
-			this->snapshot_count = static_cast<unsigned int>(slot_index + 1);
+		if (preserveSlotBookkeeping) {
+			// Nothing about this load is a slot load, so the slot the heuristic picked keeps the
+			// pointer, size and frame count it had. Writing them would rewrite another feature's
+			// state descriptor (TAS base A restores through logical slot 1, but the heuristic can
+			// land on any slot) and change what a later digest of that slot reports.
+			LOG(1, "[Snapshot] load_snapshot_sized external direct-load (slot bookkeeping preserved): external_size=%u slot=%d\n",
+				static_cast<unsigned int>(buf_size),
+				slot_index);
+		} else {
+			slot_state.field2_0x8 = static_cast<int>(buf_size);
+			this->last_saved_snapshot_size = static_cast<int>(buf_size);
+			if (this->snapshot_count == 0) {
+				this->snapshot_count = static_cast<unsigned int>(slot_index + 1);
+			}
+			LOG(1, "[Snapshot] load_snapshot_sized external direct-load: external_size=%u slot=%d slot_ptr=%p\n",
+				static_cast<unsigned int>(buf_size),
+				slot_index,
+				slot_state._ptr_buf_saved_frame);
 		}
-		LOG(1, "[Snapshot] load_snapshot_sized external direct-load: external_size=%u slot=%d slot_ptr=%p\n",
-			static_cast<unsigned int>(buf_size),
-			slot_index,
-			slot_state._ptr_buf_saved_frame);
 	}
 	LOG(1, "[Snapshot] load_snapshot_sized begin: slot=%d snapshot_count=%u external=%d size=%u slotHint=%d\n",
 		slot_index,
@@ -2664,7 +2811,13 @@ bool SnapshotApparatus::load_snapshot_index(int index) {
 		LOG(1, "[Snapshot] load_snapshot_index failed: no snapshot manager\n");
 		return false;
 	}
-	const int physical_slot = this->slot_for(static_cast<unsigned int>(index < 0 ? 0 : index));
+	if (!snap_manager || index < 0 || index >= slot_count) return false;
+	const int physical_slot = this->slot_for(static_cast<unsigned int>(index));
+	if (physical_slot < 0 || physical_slot >= SnapshotSlotPool::kSlotCount) return false;
+	if (m_slotWrites[physical_slot].quarantined) {
+		LOG(0, "[Snapshot] load rejected: quarantined physical=%d; restart match or save a fresh state\n", physical_slot);
+		return false;
+	}
 	unsigned char* dest_buf = (unsigned char*)snap_manager->_saved_states_related_struct[physical_slot]._ptr_buf_saved_frame;
 	const int slot_size = snap_manager->_saved_states_related_struct[physical_slot].field2_0x8;
 	const unsigned int slot_framecount = snap_manager->_saved_states_related_struct[physical_slot]._framecount;
@@ -2686,6 +2839,8 @@ bool SnapshotApparatus::load_snapshot_index(int index) {
 		slot_size,
 		slot_framecount);
 	LogSlotNeighborhood(snap_manager, physical_slot);
+	if (slots_reserved && slot_count == 6 && physical_slot < slot_base + 2)
+		LogNativeRegistration("before-load", snap_manager, physical_slot);
 	LogMemRegionInfo("load_snapshot_index/dest_buf", dest_buf);
 	LogMemRegionInfo("load_snapshot_index/callbacks_ptr", this->callbacks_ptr);
 	if (this->callbacks_ptr) {
@@ -2831,9 +2986,362 @@ bool SnapshotApparatus::load_snapshot_index(int index) {
 	WriteToProtectedMemory((uintptr_t)ptr_oldmem_load, oldmem_load, 3);
 	LogPatchSiteBytes("load_snapshot_index/prelude_after_restore", ptr_oldmem_load);
 	///CLEANUP_END
+	if (slots_reserved && slot_count == 6 && physical_slot < slot_base + 2)
+		LogNativeRegistration("after-load", snap_manager, physical_slot);
 	LOG(1, "[Snapshot] load_snapshot_index end success=%d\n", load_ok ? 1 : 0);
 	return load_ok;
 }
+
+namespace {
+// POD-only SEH helpers: never mix SEH with vector unwinding.
+bool GuardedReadRanges(const unsigned char* first, size_t firstSize,
+	const unsigned char* second, size_t secondSize, unsigned char* packed, uint32_t* digest) {
+	__try {
+		if (packed) {
+			memcpy(packed, first, firstSize);
+			memcpy(packed + firstSize, second, secondSize);
+			*digest = FastDigest32Local(packed, firstSize + secondSize);
+		} else {
+			uint32_t hash = 2166136261u;
+			for (size_t i = 0; i < firstSize; ++i) hash = (hash ^ first[i]) * 16777619u;
+			for (size_t i = 0; i < secondSize; ++i) hash = (hash ^ second[i]) * 16777619u;
+			*digest = hash;
+		}
+		return true;
+	} __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+bool GuardedCompareRanges(const unsigned char* first, size_t firstSize,
+	const unsigned char* second, size_t secondSize, const unsigned char* packed) {
+	__try {
+		return memcmp(first, packed, firstSize) == 0 &&
+			memcmp(second, packed + firstSize, secondSize) == 0;
+	} __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+
+bool GuardedReadRecord(const void* source, void* destination, size_t size) {
+	__try { memcpy(destination, source, size); return true; }
+	__except (EXCEPTION_EXECUTE_HANDLER) { return false; }
+}
+}
+
+void SnapshotApparatus::QuarantineSlot(int physicalSlot) {
+	m_slotWrites[physicalSlot].captureAllowed = false;
+	m_slotWrites[physicalSlot].quarantined = true;
+	LOG(0, "[Snapshot][WRITEBACK] quarantined physical=%d; loads blocked until a successful fresh save; restart match recommended\n", physicalSlot);
+}
+
+bool SnapshotApparatus::CopyLogicalSlot(int logicalSlot, SlotBytes* out) const {
+	return ReadLogicalSlot(logicalSlot, out, true);
+}
+
+bool SnapshotApparatus::CopyRestoreQueue(int logicalSlot, const SlotBytes& captured,
+	std::array<unsigned char, 0x400>* out) const {
+	if (!out) return false;
+	out->fill(0);
+	SlotBytes current;
+	if (!InspectLogicalSlot(logicalSlot, &current) || !current.SameSourceAndLayout(captured) ||
+		current.digest != captured.digest || current.descriptor != captured.descriptor) return false;
+	// Resolve through the CURRENT validated record, never through a file-supplied pointer.
+	SnapshotManager__struct record{};
+	memcpy(&record, current.descriptor.data(), sizeof(record));
+	uint32_t queueCount = 0, queueRead = 0, queueWrite = 0, queueLock = 0;
+	memcpy(&queueCount, current.descriptor.data() + 0x34, 4);
+	memcpy(&queueRead, current.descriptor.data() + 0x38, 4);
+	memcpy(&queueWrite, current.descriptor.data() + 0x3C, 4);
+	memcpy(&queueLock, current.descriptor.data() + 0x44, 4);
+	const uintptr_t queue = reinterpret_cast<uintptr_t>(record.field12_0x40);
+	// 0x785FB0 allocates 0x400; 0x7867C0/0x786860 use 16-byte entries, mask 0x3F.
+	if (!queue || queue > UINTPTR_MAX - out->size() || queueCount > 64 ||
+		queueRead >= 64 || queueWrite >= 64 || (queueLock & 1)) return false;
+	std::array<unsigned char, 0x400> first{}, second{};
+	SnapshotManager__struct after{};
+	const auto* manager = reinterpret_cast<const SnapshotManager*>(current.sourceManager);
+	if (!GuardedReadRecord(reinterpret_cast<const void*>(queue), first.data(), first.size()) ||
+		!GuardedReadRecord(reinterpret_cast<const void*>(queue), second.data(), second.size()) ||
+		first != second || !GuardedReadRecord(
+			&manager->_saved_states_related_struct[current.sourcePhysicalSlot], &after, sizeof(after)) ||
+		memcmp(&record, &after, sizeof(record)) != 0) return false;
+	const auto& state = m_slotWrites[current.sourcePhysicalSlot];
+	if (!state.captureAllowed || state.quarantined || state.serial != current.sourceSaveSerial) return false;
+	// Stability observations, not a cross-thread synchronization guarantee.
+	*out = first;
+	return true;
+}
+
+bool SnapshotApparatus::CopyAuxiliaryState(int logicalSlot, const SlotBytes& captured,
+	TasNativeArchive::Dependencies* out) const {
+	if (!out) return false;
+	*out = TasNativeArchive::Dependencies{};
+	try {
+		SlotBytes current;
+		if (!InspectLogicalSlot(logicalSlot, &current) || !current.SameSourceAndLayout(captured) ||
+			current.digest != captured.digest || current.descriptor != captured.descriptor) return false;
+		const auto* module = GetBbcfBaseAdress();
+		uint32_t context = 0, managers[5]{};
+		if (!module || !GuardedReadRecord(module + 0x142A924, &context, 4) ||
+			!context || context > UINT32_MAX - 0x184 ||
+			!GuardedReadRecord(reinterpret_cast<const void*>(context + 0x170), managers, sizeof(managers)) ||
+			managers[0] != current.sourceManager) return false;
+		TasNativeArchive::Dependencies candidate;
+		candidate.sourceContext = context;
+		for (uint32_t i = 0; i < TasNativeArchive::kAuxCount; ++i) {
+			auto& a = candidate.auxiliary[i];
+			a.contextOffset = TasNativeArchive::kContextOffsets[i];
+			a.sourceAddress = managers[i + 1];
+			const uint32_t size = TasNativeArchive::kPrefixSizes[i];
+			if (!a.sourceAddress || a.sourceAddress > UINT32_MAX - size) return false;
+			a.prefix.resize(size);
+			if (!GuardedReadRecord(reinterpret_cast<const void*>(a.sourceAddress), a.prefix.data(), size)) return false;
+			if (i == 0) {
+				const auto* record = a.prefix.data() + current.sourcePhysicalSlot * 0x18;
+				const uint32_t start = TasNativeArchive::Word(record);
+				const uint32_t length = TasNativeArchive::Word(record + 4);
+				const uint32_t end = TasNativeArchive::Word(record + 0x14);
+				if (!start || start > UINT32_MAX - TasNativeArchive::kAuxPayloadCapacity ||
+					length > TasNativeArchive::kAuxPayloadCapacity || end < start || end - start != length) return false;
+				a.sourcePayload = start;
+				a.payload.resize(length);
+				if (length && !GuardedReadRecord(reinterpret_cast<const void*>(start), a.payload.data(), length)) return false;
+			}
+		}
+		// Reread all ranges after the complete capture, not just each prefix in isolation.
+		std::vector<unsigned char> verify;
+		for (const auto& a : candidate.auxiliary) {
+			verify.resize(a.prefix.size());
+			if (!GuardedReadRecord(reinterpret_cast<const void*>(a.sourceAddress), verify.data(), verify.size()) ||
+				verify != a.prefix) return false;
+			if (!a.payload.empty()) {
+				verify.resize(a.payload.size());
+				if (!GuardedReadRecord(reinterpret_cast<const void*>(a.sourcePayload), verify.data(), verify.size()) ||
+					verify != a.payload) return false;
+			}
+		}
+		uint32_t contextAfter = 0, managersAfter[5]{};
+		SnapshotManager__struct descriptorAfter{};
+		if (!GuardedReadRecord(module + 0x142A924, &contextAfter, 4) || contextAfter != context ||
+			!GuardedReadRecord(reinterpret_cast<const void*>(context + 0x170), managersAfter, sizeof(managersAfter)) ||
+			memcmp(managers, managersAfter, sizeof(managers)) != 0 ||
+			!GuardedReadRecord(&reinterpret_cast<const SnapshotManager*>(current.sourceManager)->
+				_saved_states_related_struct[current.sourcePhysicalSlot], &descriptorAfter, sizeof(descriptorAfter)) ||
+			memcmp(&descriptorAfter, captured.descriptor.data(), sizeof(descriptorAfter)) != 0) return false;
+		const auto& writeState = m_slotWrites[current.sourcePhysicalSlot];
+		if (!writeState.captureAllowed || writeState.quarantined || writeState.serial != current.sourceSaveSerial) return false;
+		candidate.captured = true;
+		if (!TasNativeArchive::Valid(candidate, static_cast<uint32_t>(current.sourcePhysicalSlot))) return false;
+		*out = std::move(candidate);
+		return true;
+	} catch (const std::exception&) { return false; }
+}
+
+bool SnapshotApparatus::InspectLogicalSlot(int logicalSlot, SlotBytes* out) const {
+	return ReadLogicalSlot(logicalSlot, out, false);
+}
+
+bool SnapshotApparatus::MatchesLogicalSlot(int logicalSlot, const SlotBytes& state) const {
+	SlotBytes current;
+	if (state.firstSize > state.bytes.size() ||
+		state.secondSize != state.bytes.size() - state.firstSize ||
+		!InspectLogicalSlot(logicalSlot, &current) || !current.SameSourceAndLayout(state) ||
+		current.digest != state.digest) return false;
+	const auto* first = reinterpret_cast<const unsigned char*>(current.sourceBuffer);
+	return GuardedCompareRanges(first, current.firstSize, first + current.secondOffset,
+		current.secondSize, state.bytes.data()) &&
+		m_slotWrites[current.sourcePhysicalSlot].captureAllowed &&
+		m_slotWrites[current.sourcePhysicalSlot].serial == current.sourceSaveSerial;
+}
+
+bool SnapshotApparatus::ReadLogicalSlot(int logicalSlot, SlotBytes* out, bool copyPayload) const
+{
+	if (!out) {
+		return false;
+	}
+	*out = SlotBytes{};
+
+	if (logicalSlot < 0 || logicalSlot >= slot_count) {
+		LOG(1, "[Snapshot][BYTES] copy rejected logical=%d outside 0..%d\n", logicalSlot, slot_count - 1);
+		return false;
+	}
+	char* base_addr = GetBbcfBaseAdress();
+	if (!base_addr) {
+		LOG(1, "[Snapshot][BYTES] copy failed logical=%d: no base address\n", logicalSlot);
+		return false;
+	}
+	auto* DAT_on_load_4_addr = reinterpret_cast<static_DAT_of_PTR_on_load_4*>(base_addr + 0x612718);
+	SnapshotManager* snap_manager = DAT_on_load_4_addr ? DAT_on_load_4_addr->ptr_snapshot_manager_mine : nullptr;
+	if (!snap_manager) {
+		LOG(1, "[Snapshot][BYTES] copy failed logical=%d: no snapshot manager\n", logicalSlot);
+		return false;
+	}
+
+	const int physical = this->slot_for(static_cast<unsigned int>(logicalSlot));
+	if (physical < 0 || physical >= SnapshotSlotPool::kSlotCount) {
+		LOG(1, "[Snapshot][BYTES] copy failed logical=%d: no physical slot\n", logicalSlot);
+		return false;
+	}
+	const auto& writeState = m_slotWrites[physical];
+	const uint64_t serialBefore = writeState.serial;
+	if (!writeState.captureAllowed || writeState.quarantined || serialBefore == 0) {
+		LOG(1, "[Snapshot][BYTES] copy rejected logical=%d physical=%d: no valid local save serial=%llu\n",
+			logicalSlot, physical, static_cast<unsigned long long>(writeState.serial));
+		return false;
+	}
+	SnapshotManager__struct slot{};
+	static_assert(sizeof(slot) == 0x48, "Native snapshot record layout changed");
+	if (!GuardedReadRecord(&snap_manager->_saved_states_related_struct[physical], &slot, sizeof(slot)))
+		return false;
+	const unsigned char* src = reinterpret_cast<const unsigned char*>(slot._ptr_buf_saved_frame);
+	const int size = slot.field2_0x8;
+
+	// 0x48-byte native record: +04 first start, +18 first end, +1C second
+	// start, +20 second length, +30 second end. The +08 recorded size is the
+	// SUM of both lengths, not the span from the first pointer to the last.
+	// Never use a packed private vector as an argument to load_game_state.
+	constexpr size_t kSnapshotCapacity = 0xA10000;
+	const uintptr_t start = reinterpret_cast<uintptr_t>(src);
+	const uintptr_t firstEnd = reinterpret_cast<uintptr_t>(slot._ptr_buf_save_frame_1_plus_some_offset);
+	const uintptr_t secondStart = reinterpret_cast<uintptr_t>(slot._ptr_BB_CEventInstance_0);
+	const uintptr_t secondEnd = reinterpret_cast<uintptr_t>(slot._ptr_BB_CEventInstance_1_plus_some_offset);
+	const int secondLength = *reinterpret_cast<const int*>(reinterpret_cast<const unsigned char*>(&slot) + 0x20);
+	// Pointers must remain inside one native 0xA10000-byte slot allocation.
+	const bool layoutOK = slots_reserved && m_reservationEpoch != 0 && src && size > 0 &&
+		static_cast<size_t>(size) <= kSnapshotCapacity && start <= UINTPTR_MAX - kSnapshotCapacity &&
+		firstEnd > start && firstEnd <= secondStart && secondStart <= secondEnd &&
+		secondEnd <= start + kSnapshotCapacity && secondLength > 0 &&
+		static_cast<uintptr_t>(secondLength) == secondEnd - secondStart &&
+		static_cast<size_t>(size) == (firstEnd - start) + (secondEnd - secondStart);
+	if (!layoutOK) {
+		LOG(1, "[Snapshot][BYTES] copy rejected logical=%d physical=%d start=%p firstEnd=%p second=%p..%p size=%d secondLength=%d epoch=%llu\n",
+			logicalSlot, physical, src, reinterpret_cast<const void*>(firstEnd),
+			reinterpret_cast<const void*>(secondStart), reinterpret_cast<const void*>(secondEnd),
+			size, secondLength, static_cast<unsigned long long>(m_reservationEpoch));
+		return false;
+	}
+	const size_t firstSize = firstEnd - start;
+	const size_t secondSize = secondEnd - secondStart;
+	const size_t secondOffset = secondStart - start;
+	const unsigned char* second = reinterpret_cast<const unsigned char*>(secondStart);
+	// Stay read-only; a bad game-owned pointer invalidates this copy, not the match.
+	if (IsBadReadPtr(src, firstSize) || IsBadReadPtr(second, secondSize)) {
+		LOG(1, "[Snapshot][BYTES] copy rejected unreadable native range logical=%d\n", logicalSlot);
+		return false;
+	}
+	try {
+		if (copyPayload) out->bytes.resize(static_cast<size_t>(size));
+	}
+	catch (const std::exception&) {
+		LOG(1, "[Snapshot][BYTES] copy failed logical=%d: allocation of %d bytes threw\n", logicalSlot, size);
+		*out = SlotBytes{};
+		return false;
+	}
+	out->firstOffset = 0;
+	out->firstSize = firstSize;
+	out->secondOffset = secondOffset;
+	out->secondSize = secondSize;
+	out->sourceManager = reinterpret_cast<uintptr_t>(snap_manager);
+	out->sourceBuffer = start;
+	out->sourcePhysicalSlot = physical;
+	out->sourceEpoch = m_reservationEpoch;
+	out->sourceSaveSerial = serialBefore;
+	out->frame = static_cast<unsigned int>(slot._framecount);
+	memcpy(out->descriptor.data(), &slot, sizeof(slot));
+	SnapshotManager__struct after{};
+	const bool readOK = GuardedReadRanges(src, firstSize, second, secondSize,
+		copyPayload ? out->bytes.data() : nullptr, &out->digest) &&
+		GuardedReadRecord(&snap_manager->_saved_states_related_struct[physical], &after, sizeof(after)) &&
+		memcmp(&slot, &after, sizeof(slot)) == 0;
+	out->valid = true;
+	if (!readOK || !writeState.captureAllowed || writeState.quarantined || writeState.serial != serialBefore) {
+		*out = SlotBytes{};
+		LOG(0, "[Snapshot][BYTES] copy invalidated during read logical=%d\n", logicalSlot);
+		return false;
+	}
+	LOG(1, "[Snapshot][BYTES] read ok logical=%d physical=%d packed=%u ranges=[0,+%u],[+%u,+%u] frame=%u digest=0x%08X epoch=%llu\n",
+		logicalSlot, physical, static_cast<unsigned int>(firstSize + secondSize),
+		static_cast<unsigned int>(firstSize), static_cast<unsigned int>(secondOffset),
+		static_cast<unsigned int>(secondSize), out->frame, out->digest,
+		static_cast<unsigned long long>(out->sourceEpoch));
+	return true;
+}
+
+namespace {
+// Keep SEH out of the caller that owns vectors with non-trivial destructors.
+bool GuardedCopySlotRanges(unsigned char* first, const unsigned char* firstSrc, size_t firstSize,
+	unsigned char* second, const unsigned char* secondSrc, size_t secondSize) {
+	__try {
+		memcpy(first, firstSrc, firstSize);
+		memcpy(second, secondSrc, secondSize);
+		return memcmp(first, firstSrc, firstSize) == 0 &&
+			memcmp(second, secondSrc, secondSize) == 0;
+	} __except (EXCEPTION_EXECUTE_HANDLER) {
+		return false;
+	}
+}
+}
+
+bool SnapshotApparatus::RestoreCopyToOriginalSlot(int logicalSlot, const SlotBytes& state)
+{
+	if (!slots_reserved || !state.valid || state.sourceEpoch != m_reservationEpoch ||
+		logicalSlot < 0 || logicalSlot >= slot_count ||
+		state.sourcePhysicalSlot != slot_for(static_cast<unsigned int>(logicalSlot)) ||
+		state.sourceSaveSerial == 0 || state.bytes.empty() ||
+		state.firstOffset != 0 || state.firstSize == 0 || state.secondSize == 0 ||
+		state.firstSize > state.bytes.size() ||
+		state.secondSize != state.bytes.size() - state.firstSize ||
+		state.secondOffset < state.firstSize || state.secondOffset > 0xA10000u ||
+		state.secondSize > 0xA10000u - state.secondOffset ||
+		FastDigest32Local(state.bytes.data(), state.bytes.size()) != state.digest) {
+		LOG(0, "[Snapshot][WRITEBACK] preflight rejected logical=%d: invalid copy/epoch/layout/digest\n", logicalSlot);
+		return false;
+	}
+	const int physical = state.sourcePhysicalSlot;
+	if (!MatchesLogicalSlot(logicalSlot, state)) {
+		LOG(0, "[Snapshot][WRITEBACK] preflight rejected logical=%d physical=%d: source or bytes changed\n", logicalSlot, physical);
+		return false;
+	}
+	// Descriptor is checked on both sides. No descriptor fields are rewritten in this experiment.
+	const auto* manager = reinterpret_cast<const SnapshotManager*>(state.sourceManager);
+	const auto* record = reinterpret_cast<const unsigned char*>(&manager->_saved_states_related_struct[physical]);
+	unsigned char descriptor[0x48];
+	if (!GuardedReadRecord(record, descriptor, sizeof(descriptor))) return false;
+	auto* destination = reinterpret_cast<unsigned char*>(state.sourceBuffer);
+	if (IsBadWritePtr(destination, state.firstSize) ||
+		IsBadWritePtr(destination + state.secondOffset, state.secondSize)) {
+		LOG(0, "[Snapshot][WRITEBACK] rejected logical=%d: native ranges not writable\n", logicalSlot);
+		return false;
+	}
+	LOG(1, "[Snapshot][WRITEBACK] preflight ok logical=%d physical=%d serial=%llu packed=%u\n",
+		logicalSlot, physical, static_cast<unsigned long long>(state.sourceSaveSerial), static_cast<unsigned int>(state.bytes.size()));
+	const bool written = GuardedCopySlotRanges(destination, state.bytes.data(), state.firstSize,
+		destination + state.secondOffset, state.bytes.data() + state.firstSize, state.secondSize);
+	if (!written) {
+		QuarantineSlot(physical);
+		LOG(0, "[Snapshot][WRITEBACK] write/verify failed; slot invalidated physical=%d; restart match\n", physical);
+		return false;
+	}
+	LOG(1, "[Snapshot][WRITEBACK] two-range write completed logical=%d\n", logicalSlot);
+	const bool reread = MatchesLogicalSlot(logicalSlot, state);
+	unsigned char descriptorAfter[0x48];
+	const bool descriptorUnchanged = GuardedReadRecord(record, descriptorAfter, sizeof(descriptorAfter)) &&
+		memcmp(descriptor, descriptorAfter, sizeof(descriptor)) == 0;
+	LOG(1, "[Snapshot][WRITEBACK] reread bytesEqual=%d descriptorUnchanged=%d logical=%d\n",
+		reread ? 1 : 0, descriptorUnchanged ? 1 : 0, logicalSlot);
+	if (!reread || !descriptorUnchanged) {
+		QuarantineSlot(physical);
+		return false;
+	}
+	const bool loaded = load_snapshot_index(logicalSlot);
+	LOG(1, "[Snapshot][WRITEBACK] native-load success=%d logical=%d\n", loaded ? 1 : 0, logicalSlot);
+	if (!loaded) QuarantineSlot(physical);
+	return loaded;
+}
+
+bool SnapshotApparatus::RestoreFromBytes(const SlotBytes& /*state*/)
+{
+	LOG(0, "[Snapshot][BYTES] private restore disabled: native address registration is required\n");
+	return false;
+}
+
 bool SnapshotApparatus::check_if_valid(CharData* p1, CharData* p2)
 {
 	if (this->p1_ptr == p1 && this->p2_ptr == p2) {
@@ -2907,5 +3415,3 @@ int SnapshotApparatus::get_nearest_prealloc_frame(int current_frame, std::map<in
 int SnapshotApparatus::get_last_saved_snapshot_size() const {
 	return this->last_saved_snapshot_size;
 }
-
-

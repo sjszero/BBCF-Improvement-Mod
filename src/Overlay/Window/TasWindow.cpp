@@ -100,6 +100,8 @@ std::string NextTasFileName() {
 constexpr const char* kFileDialogOwner = "tas_window";
 constexpr int kFileDialogSaveMovie = 0;
 constexpr int kFileDialogLoadMovie = 1;
+constexpr int kFileDialogSaveProject = 2;
+constexpr int kFileDialogValidateProject = 3;
 
 // "1 frames" reads as a bug, and Spanish has the same problem, so the singular is its
 // own string rather than a formatted count.
@@ -259,6 +261,10 @@ void TasWindow::Draw() {
             manager.ExportMovie(fileResult.path, m_includeInitialConditions);
         } else if (fileResult.contextId == kFileDialogLoadMovie) {
             manager.ImportMovie(fileResult.path);
+        } else if (fileResult.contextId == kFileDialogSaveProject) {
+            manager.ExportProject(fileResult.path);
+        } else if (fileResult.contextId == kFileDialogValidateProject) {
+            manager.ValidateProjectFile(fileResult.path);
         }
     }
 
@@ -275,8 +281,9 @@ void TasWindow::Draw() {
 
     // Nothing downstream of the base state can do anything without one, so rather than
     // letting the user click buttons that only produce an error, the whole editor is
-    // disabled until the situation has been captured.
-    const bool ready = manager.HasBaseSnapshot();
+    // disabled until the situation has been captured. Both halves of the pair are required:
+    // an incomplete capture cannot replay the hidden lead-in a presentation depends on.
+    const bool ready = manager.HasBasePair();
     const bool recording = manager.IsLiveRecording();
     ImGui::BeginDisabled(!ready);
     // The composer stays live during a capture because it owns the Stop button; everything
@@ -325,7 +332,10 @@ void TasWindow::DrawStatusStrip(TasManager& manager) const {
     } else if (state == TasRunState::ReplayingMovie) {
         colour = kColLive;
         label = L("Replaying");
-    } else if (!manager.HasBaseSnapshot()) {
+    } else if (manager.IsPreparingBase()) {
+        colour = kColWarn;
+        label = L("Saving base state");
+    } else if (!manager.HasBasePair()) {
         colour = kColWarn;
         label = L("No base state");
     }
@@ -352,23 +362,35 @@ void TasWindow::DrawStatusStrip(TasManager& manager) const {
 void TasWindow::DrawBaseStateSection(TasManager& manager) {
     SectionHeader(L("Base state"));
 
-    if (!manager.HasBaseSnapshot()) {
-        TextColoredWrapped(kColWarn, L("Set the match up the way you want the combo to start, then save a base state."));
+    // A capture now runs for 60 frames plus a boundary wait, so the window has to say so
+    // rather than leaving the button looking like it did nothing.
+    if (manager.IsPreparingBase()) {
+        TextColoredWrapped(kColLive, L("Saving the base state... the match holds neutral for 60 frames."));
+        FlowHelpMarker(L("The base state is taken as a pair: the moment you clicked, and the same match 60 frames later. The 60 neutral frames run now, hidden, and they are what a presentation recording replays before its first movie frame."));
+        return;
+    }
+
+    if (!manager.HasBasePair()) {
+        if (manager.HasBaseSnapshot()) {
+            TextColoredWrapped(kColWarn, L("The base state pair is incomplete. Save it again."));
+        } else {
+            TextColoredWrapped(kColWarn, L("Set the match up the way you want the combo to start, then save a base state."));
+        }
         ImGui::VerticalSpacing(2);
         if (ImGui::Button(L("Save base state").c_str())) {
             manager.SaveBaseSnapshot();
         }
-        FlowHelpMarker(L("Captures positions, health, meter and everything else as the starting point of the combo. Every playback and every rewind returns here, so save it before you type any input."));
+        FlowHelpMarker(L("Captures positions, health, meter and everything else as the starting point of the combo. Every playback and every rewind returns here, so save it before you type any input. Saving runs 60 hidden neutral frames and stores both ends of them."));
         return;
     }
 
     ImGui::Text(Messages.Saved_at_frame_u(), manager.GetBaseFrame());
-    FlowHelpMarker(L("Every playback and every rewind restores this moment."));
+    FlowHelpMarker(L("Every seek, every preview and every rewind restores this moment. A presentation recording starts 60 frames earlier and replays those hidden frames, so its first movie frame lands exactly here."));
     FlowSameLine(ButtonWidth(L("Re-save")));
     if (ImGui::Button(L("Re-save").c_str())) {
         manager.SaveBaseSnapshot();
     }
-    FlowHelpMarker(L("Replaces the base state with the current moment. The movie you have recorded is kept, but it will no longer line up with the new starting point."));
+    FlowHelpMarker(L("Replaces the base state with the current moment, then spends 60 hidden neutral frames taking the other half of the pair. The movie you have recorded is kept, but it will no longer line up with the new starting point."));
     FlowSameLine(ButtonWidth(L("Restore")));
     if (ImGui::Button(L("Restore").c_str())) {
         manager.LoadBaseSnapshot();
@@ -740,6 +762,113 @@ void TasWindow::DrawPlaybackSection(TasManager& manager) {
         manager.SetAutoLoadAfterPlayback(autoLoad);
     }
     FlowHelpMarker(L("After a preview ends, jump straight back to the start of the combo instead of staying on the final frame."));
+
+    DrawSnapshotCopyVerification(manager);
+}
+
+// Read-only byte inspection and native-slot baselines. Private-byte restore is
+// disabled: the game requires an address registered in its internal state table.
+void TasWindow::DrawSnapshotCopyVerification(TasManager& manager) {
+    // Own the text passed to widgets and pass c_str() to ImGui's C/varargs APIs.
+    // unordered_map rehash does NOT invalidate element references; local copies are
+    // not evidence that rehash caused the earlier UI crash.
+    const std::string titleText = L("Snapshot copy verification");
+    if (!ImGui::CollapsingHeader(titleText.c_str())) {
+        return;
+    }
+    const std::string warningText = L("Diagnostic. Runs the whole movie several times and writes a large log. Do not edit the movie, re-save the base state or import while testing.");
+    const std::string copyBaseText = L("Copy base states");
+    const std::string copyBaseHelp = L("Reads both saved states out of the game and keeps a private copy of each in memory. Both are copied or neither is; nothing is written to disk and the copies are dropped when you leave the match.");
+    const std::string dropCopiesText = L("Drop copies");
+    const std::string dropCopiesHelp = L("Releases the copies. Copying again is cheap, so there is no reason to hold them while doing anything else.");
+    const std::string copiesReadyText = L("Copies ready: generation %u, A frame %u, B frame %u, %u bytes total.");
+    const std::string noCopiesText = L("No copies held.");
+    const std::string runFromAText = L("Run the movie from A (through the 60-frame lead-in):");
+    const std::string slotAText = L("Slot A");
+    const std::string slotAHelp = L("Restores playback base A from its slot and plays the movie, exactly as a presentation recording does.");
+    // Private-copy load controls removed after native address-lookup failure.
+    const std::string runFromBText = L("Run the movie from B (direct, no lead-in):");
+    const std::string slotBText = L("Slot B");
+    const std::string slotBHelp = L("Restores editing base B from its slot and plays the movie from its first frame.");
+    // No private-copy restore button: native registration is required.
+    const std::string unverifiedText = L("A run whose log has no matching \"end\" line, or whose frame count differs between the two runs of a pair, must be treated as unverified rather than passed.");
+
+    const bool hasMovie = manager.GetFrameCount() > 0;
+    const bool hasPair = manager.HasBasePair();
+    const bool busy = manager.IsPlaybackRunning() || manager.IsLiveRecording() ||
+        manager.IsFidelityDiagnosticRun();
+    const bool hasCopies = manager.HasFidelityBaseCopies();
+
+    TextColoredWrapped(kColWarn, warningText);
+    TextColoredWrapped(kColWarn,
+        "Private-byte loading is disabled. A/B writeback rewrites only the unchanged original registered slot; it does not restore an independently saved copy.");
+    ImGui::VerticalSpacing(2);
+
+    ImGui::BeginDisabled(busy || !hasPair);
+    if (ImGui::Button(copyBaseText.c_str(), ImVec2(150.0f, 0.0f))) {
+        manager.CaptureFidelityBaseCopies();
+    }
+    ImGui::EndDisabled();
+    FlowHelpMarker(copyBaseHelp);
+
+    FlowSameLine(ButtonWidth(dropCopiesText));
+    ImGui::BeginDisabled(busy || !hasCopies);
+    if (ImGui::Button(dropCopiesText.c_str())) {
+        manager.ClearFidelityBaseCopies();
+    }
+    ImGui::EndDisabled();
+    FlowHelpMarker(dropCopiesHelp);
+
+    if (manager.HasFidelityBaseCopies()) {
+        const TasManager::FidelityBaseCopies& copies = manager.GetFidelityBaseCopies();
+        ImGui::Text(copiesReadyText.c_str(),
+            static_cast<unsigned int>(copies.generation),
+            copies.frameA,
+            copies.frameB,
+            static_cast<unsigned int>(copies.baseA.bytes.size() + copies.baseB.bytes.size()));
+    } else {
+        ImGui::TextDisabled("%s", noCopiesText.c_str());
+    }
+
+    ImGui::VerticalSpacing(4);
+    ImGui::TextUnformatted(runFromAText.c_str());
+    ImGui::BeginDisabled(busy || !hasMovie || !hasPair);
+    if (ImGui::Button(slotAText.c_str(), ImVec2(150.0f, 0.0f))) {
+        manager.StartFidelityRun(FidelityRestoreSource::Slot,
+            FidelityStartPoint::AWithLeadIn);
+    }
+    ImGui::EndDisabled();
+    FlowHelpMarker(slotAHelp);
+
+    ImGui::BeginDisabled(busy || !hasMovie || !hasPair || !hasCopies);
+    if (ImGui::Button("Copy -> original A (diagnostic)", ImVec2(270.0f, 0.0f))) {
+        manager.StartFidelityRun(FidelityRestoreSource::CopyToOriginalSlot,
+            FidelityStartPoint::AWithLeadIn);
+    }
+    ImGui::EndDisabled();
+    FlowHelpMarker("Rewrites unchanged original A, verifies it, then uses the existing 60-frame lead-in. No private address is loaded.");
+
+    ImGui::VerticalSpacing(4);
+    ImGui::TextUnformatted(runFromBText.c_str());
+    ImGui::BeginDisabled(busy || !hasMovie || !hasPair);
+    if (ImGui::Button(slotBText.c_str(), ImVec2(150.0f, 0.0f))) {
+        manager.StartFidelityRun(FidelityRestoreSource::Slot,
+            FidelityStartPoint::BDirect);
+    }
+    ImGui::EndDisabled();
+    FlowHelpMarker(slotBHelp);
+
+    // Explicit diagnostic only; never pass vector.data() to the native loader.
+    ImGui::BeginDisabled(busy || !hasMovie || !hasPair || !hasCopies);
+    if (ImGui::Button("Copy -> original B (diagnostic)", ImVec2(270.0f, 0.0f))) {
+        manager.StartFidelityRun(FidelityRestoreSource::CopyToOriginalSlot,
+            FidelityStartPoint::BDirect);
+    }
+    ImGui::EndDisabled();
+    FlowHelpMarker("Rewrites only unchanged original B payload ranges, verifies byte-for-byte, then invokes native slot load. Stop and restart the match after any writeback failure.");
+
+    ImGui::VerticalSpacing(4);
+    TextColoredWrapped(kColWarn, unverifiedText);
 }
 
 void TasWindow::DrawFooter(TasManager& manager) {
@@ -816,11 +945,36 @@ void TasWindow::DrawMovieFilePopup(TasManager& manager) {
     ImGui::Separator();
     ImGui::VerticalSpacing(3);
 
+    const bool projectBusy = NativeFileDialog::IsOpen() || manager.IsPlaybackRunning() || manager.IsLiveRecording();
+    TextDisabledWrapped("Project archive: inputs + bound A/B payloads + capture details. Restore is not implemented yet.");
+    ImGui::BeginDisabled(projectBusy || !manager.HasProjectBase() || manager.GetFrameCount() == 0);
+    if (ImGui::Button("Save project archive")) {
+        NativeFileDialog::Request request;
+        request.save = true;
+        request.title = "Save TAS project archive";
+        request.filters.push_back({ "TAS Project (*.bbtas)", "*.bbtas" });
+        request.defaultExtension = "bbtas";
+        request.initialPath = "tas_project.bbtas";
+        request.contextId = kFileDialogSaveProject;
+        NativeFileDialog::Open(kFileDialogOwner, request);
+    }
+    ImGui::EndDisabled();
+    ImGui::BeginDisabled(projectBusy);
+    if (ImGui::Button("Read / validate archive")) {
+        NativeFileDialog::Request request;
+        request.title = "Validate TAS archive (no restore)";
+        request.filters.push_back({ "TAS Project (*.bbtas)", "*.bbtas" });
+        request.defaultExtension = "bbtas";
+        request.contextId = kFileDialogValidateProject;
+        NativeFileDialog::Open(kFileDialogOwner, request);
+    }
+    ImGui::EndDisabled();
+    ImGui::Separator();
     TextDisabledWrapped(L("Movies are plain text. They store the inputs only, not the base state."));
     ImGui::VerticalSpacing(4);
 
     ImGui::Checkbox(L("Include initial conditions").c_str(), &m_includeInitialConditions);
-    FlowHelpMarker(L("Writes the characters and starting positions into the file as a comment, so you can tell later what the combo was built on."));
+    FlowHelpMarker("Adds saved-base capture details when available. Text files still cannot restore the base.");
 
     ImGui::VerticalSpacing(4);
 

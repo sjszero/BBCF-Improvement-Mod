@@ -580,4 +580,10 @@
   <ItemGroup>
     <CustomBuild Include="resource\localization\Localization.csv" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Game\TasProjectFile.cpp"><Filter>src</Filter></ClCompile>
+    <ClInclude Include="src\Game\TasProjectFile.h"><Filter>include</Filter></ClInclude>
+    <ClInclude Include="src\Game\TasNativeArchive.h"><Filter>include</Filter></ClInclude>
+    <ClInclude Include="src\Game\TasRestorePlan.h"><Filter>include</Filter></ClInclude>
+  </ItemGroup>
 </Project>

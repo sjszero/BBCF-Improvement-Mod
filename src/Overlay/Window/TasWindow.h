@@ -59,6 +59,8 @@ private:
     int DrawComposerRow(TasManager& manager, int player, const char* label, const char* id,
         const std::string& hint, char* buffer, size_t bufferSize, float badgeWidth);
     void DrawPlaybackSection(TasManager& manager);
+    // Read-only base copies and native-slot baseline runs. Private-copy loading is disabled.
+    void DrawSnapshotCopyVerification(TasManager& manager);
     void DrawFooter(TasManager& manager);
 
     // Occasional work, kept behind buttons so it does not compete with the editor.

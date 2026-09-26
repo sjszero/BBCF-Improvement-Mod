@@ -31,6 +31,10 @@ namespace SnapshotSlotPool
 	// Returns a previously acquired range. Safe to call with base < 0 (a failed Acquire).
 	void Release(int base, int count);
 
+	// True when a slot belongs to any active reservation.
+	bool IsReserved(int slot);
+
 	// "0:tas_base 1-4:tas_keyframes 5:training_states ..." for the log and the debug window.
+
 	std::string DescribeUsage();
 }

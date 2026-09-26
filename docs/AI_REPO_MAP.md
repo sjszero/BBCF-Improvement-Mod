@@ -37,6 +37,9 @@ No unit test suite is present; normal validation is build plus operator in-game 
   in `MainMenuNav.cpp`'s table, which is also what the search indexes.
 - Localization: `resource/localization/Localization.csv`; generated accessor is `src/Core/LocalizationKeys.autogen.h`.
 - Replay/URT: `src/Game/ReplayTakeover`, `ReplayRewind`, `ReplayStates`, `SnapshotApparatus`; docs in `docs/replay_takeover`.
+- TAS editor: `src/Game/TasManager.*`, UI in `src/Overlay/Window/TasWindow.*`. Base-state
+  save/restore fidelity is measured, not assumed - read `docs/tas_base_state_fidelity.md`
+  before changing anything about when a base is captured, restored or logged.
 - Networking/Steam: `src/Network`, `src/SteamApiWrapper`, packet structs in `src/Network/Packet.h`.
 - Palettes: `src/Palette`, hooks in `src/Hooks/hooks_palette.*`, config in `resource/palettes.ini`.
   Character-specific palette redirection (Platinum's item states) is documented in

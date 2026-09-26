@@ -66,6 +66,17 @@ void SnapshotSlotPool::Release(int base, int count)
 	LOG(2, "[SnapshotSlots] released %d slot(s) at %d\n", count, base);
 }
 
+bool SnapshotSlotPool::IsReserved(int slot)
+{
+	if (slot < 0 || slot >= kSlotCount)
+	{
+		return false;
+	}
+
+	std::lock_guard<std::mutex> lock(g_mutex);
+	return g_owners[slot] != nullptr;
+}
+
 std::string SnapshotSlotPool::DescribeUsage()
 {
 	std::lock_guard<std::mutex> lock(g_mutex);

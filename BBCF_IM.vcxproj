@@ -39,6 +39,11 @@
     <ClCompile Include="src\Game\ScenesManager\ScenesManager.cpp" />
     <ClCompile Include="src\Game\ReplayRewind\ReplayRewind.cpp" />
     <ClCompile Include="src\Game\TasManager.cpp" />
+    <ClCompile Include="src\Game\TasProjectFile.cpp" />
+    <ClInclude Include="src\Game\TasProjectFile.h" />
+    <ClInclude Include="src\Game\TasNativeArchive.h" />
+    <ClInclude Include="src\Game\TasRestorePlan.h" />
+    <ClInclude Include="src\Game\TasRuntimeEvidence.h" />
     <ClCompile Include="src\Hooks\hooks_battle_input.cpp" />
     <ClCompile Include="src\Hooks\RankedAutomationHarness.cpp" />
     <ClCompile Include="src\Overlay\Window\FrameAdvantage\FrameAdvantageWindow.cpp" />

@@ -28,3 +28,6 @@ src/Core/BuildInfo.autogen.h
 
 # Local deploy paths (machine-specific; template committed as DeploySettings.props.example)
 deploy/DeploySettings.props
+
+# MinGW cross-build check output (see .cache/bbcf-build/mingw-build.sh)
+/.cache-mingw/

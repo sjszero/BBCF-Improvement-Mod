@@ -9283,6 +9283,25 @@ void __declspec(naked)GetFrameCounter()
 		// original code
 		mov eax, [esi]
 		inc dword ptr[esi + 0Ch]
+	}
+
+	// The two base snapshots are taken on this side of the increment, so the frame number the
+	// snapshot carries is the one the movie timeline will use for it. Saving before the
+	// increment would store a frame that is about to change.
+	__asm pushfd
+	__asm pushad
+	{
+		auto& tas = TasManager::Instance();
+		tas.FinalizeKeyframeAfterIncrement();
+		tas.FinalizeBasePairCaptureAfterIncrement();
+		tas.FinalizeBasePairAfterIncrement();
+		tas.FinalizePresentationLeadInAfterIncrement();
+	}
+	__asm popad
+	__asm popfd
+
+	_asm
+	{
 		jmp[GetFrameCounterJmpBackAddr]
 	}
 }
